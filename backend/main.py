@@ -142,6 +142,7 @@ class TaskCreate(BaseModel):
     description: str  # 自然语言描述
     importance: str = "medium"  # low, medium, high
     is_long_term: bool = False
+    start_date: Optional[str] = None  # 开始日期（YYYY-MM-DD 格式，可选）
     deadline: Optional[str] = None  # YYYY-MM-DD 格式，长期任务为 None
     user_id: str  # 用户ID
 
@@ -160,6 +161,7 @@ class TaskResponse(BaseModel):
     description: str
     importance: str
     is_long_term: bool
+    start_date: Optional[str] = None
     deadline: Optional[str]
     subtasks: List[SubtaskResponse]
     created_at: str
@@ -213,6 +215,16 @@ class SubtaskUpdate(BaseModel):
 
 class AllocatedHoursUpdate(BaseModel):
     allocated_hours: float
+
+
+class CustomTaskItemCreate(BaseModel):
+    """创建自定义任务项的请求模型"""
+    task_name: str
+    description: Optional[str] = None
+    date: str  # YYYY-MM-DD 格式
+    allocated_hours: float
+    importance: str = "medium"  # low, medium, high
+    user_id: str
 
 
 @app.post("/users", response_model=UserResponse)
@@ -291,11 +303,21 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
         if not user:
             raise HTTPException(status_code=404, detail="用户未找到")
         
+        # 解析开始日期
+        start_date_obj = None
+        if task.start_date:
+            start_date_obj = datetime.strptime(task.start_date, "%Y-%m-%d").date()
+        
+        # 解析截止日期
         deadline_date = None
         if task.deadline and not task.is_long_term:
             deadline_date = datetime.strptime(task.deadline, "%Y-%m-%d").date()
             if deadline_date < get_today_cst():
                 raise HTTPException(status_code=400, detail="截止日期不能早于今天")
+            
+            # 如果指定了开始日期，验证开始日期不晚于截止日期
+            if start_date_obj and start_date_obj > deadline_date:
+                raise HTTPException(status_code=400, detail="开始日期不能晚于截止日期")
         
         db_task = Task(
             user_id=user.id,
@@ -303,6 +325,7 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
             description=task.description,
             importance=task.importance,
             is_long_term=task.is_long_term,
+            start_date=start_date_obj,
             deadline=deadline_date
         )
         db.add(db_task)
@@ -315,6 +338,7 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
             description=db_task.description,
             importance=db_task.importance,
             is_long_term=db_task.is_long_term,
+            start_date=db_task.start_date.isoformat() if db_task.start_date else None,
             deadline=db_task.deadline.isoformat() if db_task.deadline else None,
             subtasks=[],
             created_at=db_task.created_at.isoformat()
@@ -356,6 +380,7 @@ async def get_tasks(user_id: str = None, db: Session = Depends(get_db)):
             description=task.description,
             importance=task.importance,
             is_long_term=task.is_long_term,
+            start_date=task.start_date.isoformat() if task.start_date else None,
             deadline=task.deadline.isoformat() if task.deadline else None,
             subtasks=subtasks,
             created_at=task.created_at.isoformat()
@@ -393,10 +418,83 @@ async def get_task(task_id: int, user_id: str = None, db: Session = Depends(get_
         description=task.description,
         importance=task.importance,
         is_long_term=task.is_long_term,
+        start_date=task.start_date.isoformat() if task.start_date else None,
         deadline=task.deadline.isoformat() if task.deadline else None,
         subtasks=subtasks,
         created_at=task.created_at.isoformat()
     )
+
+
+@app.post("/custom-task-item", response_model=DailyItemResponse)
+async def create_custom_task_item(request: CustomTaskItemCreate, db: Session = Depends(get_db)):
+    """创建自定义任务项（不通过LLM，直接在指定日期创建任务）"""
+    try:
+        # 根据 user_id 查找用户
+        user = db.query(User).filter(User.user_id == request.user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="用户未找到")
+        
+        # 解析日期
+        try:
+            task_date = datetime.strptime(request.date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="日期格式错误，请使用 YYYY-MM-DD 格式")
+        
+        # 验证时间
+        if request.allocated_hours <= 0:
+            raise HTTPException(status_code=400, detail="分配时间必须大于0")
+        
+        # 验证重要性
+        if request.importance not in ["low", "medium", "high"]:
+            raise HTTPException(status_code=400, detail="重要性必须是 low、medium 或 high")
+        
+        # 检查是否已存在同名任务（可选：可以复用现有任务，或创建新任务）
+        # 这里我们创建新任务，每次都是独立的
+        db_task = Task(
+            user_id=user.id,
+            task_name=request.task_name,
+            description=request.description or request.task_name,
+            importance=request.importance,
+            is_long_term=True,  # 自定义任务项视为长期任务
+            start_date=task_date,
+            deadline=None
+        )
+        db.add(db_task)
+        db.flush()  # 获取任务ID
+        
+        # 创建任务项（长期任务，subtask_id 为 NULL）
+        db_item = DailyTaskItem(
+            date=task_date,
+            task_id=db_task.id,
+            subtask_id=None,  # 自定义任务项没有子任务
+            allocated_hours=request.allocated_hours,
+            is_completed=False
+        )
+        db.add(db_item)
+        db.commit()
+        db.refresh(db_item)
+        db.refresh(db_task)
+        
+        # 返回任务项响应
+        return DailyItemResponse(
+            id=db_item.id,
+            date=db_item.date.isoformat(),
+            task_id=db_item.task_id,
+            task_name=db_task.task_name,
+            subtask_id=0,  # 长期任务使用 0
+            subtask_name=db_task.task_name,
+            allocated_hours=db_item.allocated_hours,
+            is_completed=db_item.is_completed,
+            importance=db_task.importance
+        )
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"日期格式错误: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"创建自定义任务项失败: {str(e)}")
 
 
 @app.post("/tasks/{task_id}/generate-subtasks")
@@ -520,7 +618,8 @@ async def generate_plan(task_id: int, user_id: str = None, db: Session = Depends
         # 长期任务不需要子任务，直接生成计划
         if task.is_long_term:
             # 为长期任务生成未来30天的计划
-            start_date = get_today_cst()
+            # 如果指定了开始日期，使用开始日期；否则使用今天
+            start_date = task.start_date if task.start_date else get_today_cst()
             end_date = start_date + timedelta(days=30)
             
             # 创建每日计划项（长期任务每天分配固定时间）
@@ -563,11 +662,17 @@ async def generate_plan(task_id: int, user_id: str = None, db: Session = Depends
         if not task.deadline:
             raise HTTPException(status_code=400, detail="非长期任务必须设置截止日期")
         
-        start_date = get_today_cst()
+        # 如果指定了开始日期，使用开始日期；否则使用今天
+        start_date = task.start_date if task.start_date else get_today_cst()
         end_date = task.deadline
+        
+        # 验证日期
+        if start_date > end_date:
+            raise HTTPException(status_code=400, detail="开始日期不能晚于截止日期")
+        
         days = (end_date - start_date).days + 1
         if days <= 0:
-            raise HTTPException(status_code=400, detail="截止日期不能早于今天")
+            raise HTTPException(status_code=400, detail="截止日期不能早于开始日期")
         
         # 构建提示词
         subtasks_info = [
@@ -587,7 +692,7 @@ async def generate_plan(task_id: int, user_id: str = None, db: Session = Depends
 {chr(10).join([f"{i+1}. {info}" for i, info in enumerate(subtasks_info)])}
 
 要求:
-1. 从今天 ({start_date}) 开始，到 {'未来30天' if task.is_long_term else task.deadline.isoformat()} 为止，生成每日计划
+1. 从 {start_date.isoformat()} 开始，到 {'未来30天' if task.is_long_term else end_date.isoformat()} 为止，生成每日计划
 2. **重要：每天可以分配多个子任务**，比如同一天可以复习PPT和MP，或者复习PPT和WA
 3. 合理分配每个子任务到不同的日期，确保在截止日期前完成所有子任务
 4. 如果任务较多或时间较长，可以将一个子任务拆分到多天完成

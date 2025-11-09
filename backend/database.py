@@ -11,6 +11,17 @@ from models import Base, User, Task, Subtask, DailyTaskItem, DailyPlan
 # 支持 Railway 的 PostgreSQL 或使用 SQLite
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./plans.db")
 
+# 诊断：输出数据库类型（隐藏敏感信息）
+if DATABASE_URL.startswith("sqlite"):
+    print("⚠️  警告：正在使用 SQLite 数据库")
+    print("⚠️  SQLite 数据存储在容器中，每次部署都会丢失数据！")
+    print("⚠️  请确保在 Railway 上配置了 PostgreSQL 数据库服务")
+    print(f"🔹 数据库路径: {DATABASE_URL}")
+else:
+    # 隐藏密码，只显示连接信息
+    db_info = DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else DATABASE_URL
+    print(f"✅ 使用 PostgreSQL 数据库: {db_info}")
+
 # 如果使用 PostgreSQL (Railway)，需要转换 URL 格式
 # Railway 提供的 PostgreSQL URL 格式是 postgres://，但 SQLAlchemy 需要 postgresql://
 if DATABASE_URL.startswith("postgres://"):
@@ -55,27 +66,37 @@ def _run_migrations():
     try:
         inspector = inspect(engine)
         
-        # 检查 subtasks 表是否存在
-        if 'subtasks' not in inspector.get_table_names():
-            return
+        # 迁移 1: 为 subtasks 表添加 description 字段
+        if 'subtasks' in inspector.get_table_names():
+            columns = [col['name'] for col in inspector.get_columns('subtasks')]
+            if 'description' not in columns:
+                print("🔹 正在添加 description 字段到 subtasks 表...")
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text("ALTER TABLE subtasks ADD COLUMN description TEXT"))
+                    print("✅ description 字段已添加")
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "duplicate column" in error_str or "already exists" in error_str:
+                        print("✅ description 字段已存在")
+                    else:
+                        print(f"⚠️  添加 description 字段时出现警告: {str(e)}")
         
-        # 检查 description 字段是否存在
-        columns = [col['name'] for col in inspector.get_columns('subtasks')]
-        
-        if 'description' not in columns:
-            print("🔹 正在添加 description 字段到 subtasks 表...")
-            try:
-                with engine.begin() as conn:
-                    # 使用 ALTER TABLE 添加字段
-                    conn.execute(text("ALTER TABLE subtasks ADD COLUMN description TEXT"))
-                print("✅ description 字段已添加")
-            except Exception as e:
-                # 如果字段已存在（某些数据库会抛出异常），忽略错误
-                error_str = str(e).lower()
-                if "duplicate column" in error_str or "already exists" in error_str:
-                    print("✅ description 字段已存在")
-                else:
-                    print(f"⚠️  添加 description 字段时出现警告: {str(e)}")
+        # 迁移 2: 为 tasks 表添加 start_date 字段
+        if 'tasks' in inspector.get_table_names():
+            columns = [col['name'] for col in inspector.get_columns('tasks')]
+            if 'start_date' not in columns:
+                print("🔹 正在添加 start_date 字段到 tasks 表...")
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text("ALTER TABLE tasks ADD COLUMN start_date DATE"))
+                    print("✅ start_date 字段已添加")
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "duplicate column" in error_str or "already exists" in error_str:
+                        print("✅ start_date 字段已存在")
+                    else:
+                        print(f"⚠️  添加 start_date 字段时出现警告: {str(e)}")
     except Exception as e:
         # 迁移失败不应阻止应用启动
         print(f"⚠️  数据库迁移检查失败: {str(e)}")

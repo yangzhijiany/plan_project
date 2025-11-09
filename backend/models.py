@@ -30,6 +30,7 @@ class Task(Base):
     description = Column(Text, nullable=False)  # 自然语言描述
     importance = Column(String, default="medium")  # low, medium, high
     is_long_term = Column(Boolean, default=False)  # 是否长期任务
+    start_date = Column(Date, nullable=True, index=True)  # 开始日期（可选）
     deadline = Column(Date, nullable=True, index=True)  # 截止日期，长期任务为 None
     created_at = Column(DateTime, default=datetime.utcnow)
     

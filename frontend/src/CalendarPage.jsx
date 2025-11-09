@@ -19,6 +19,13 @@ function CalendarPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [deleteFuture, setDeleteFuture] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [selectedDate, setSelectedDate] = useState('')
+  const [newTaskName, setNewTaskName] = useState('')
+  const [newTaskDescription, setNewTaskDescription] = useState('')
+  const [newTaskHours, setNewTaskHours] = useState(2)
+  const [newTaskImportance, setNewTaskImportance] = useState('medium')
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -138,6 +145,49 @@ function CalendarPage() {
     }
   }
 
+  const handleDateClick = (arg) => {
+    // 点击日期时，打开创建任务项的模态框
+    setSelectedDate(arg.dateStr)
+    setNewTaskName('')
+    setNewTaskDescription('')
+    setNewTaskHours(2)
+    setNewTaskImportance('medium')
+    setShowCreateModal(true)
+  }
+
+  const handleCreateCustomTask = async () => {
+    if (!user || !selectedDate || !newTaskName.trim()) {
+      setError('请填写任务名称')
+      return
+    }
+
+    setCreating(true)
+    setError('')
+
+    try {
+      await axios.post(`${API_BASE_URL}/custom-task-item`, {
+        task_name: newTaskName,
+        description: newTaskDescription || null,
+        date: selectedDate,
+        allocated_hours: parseFloat(newTaskHours),
+        importance: newTaskImportance,
+        user_id: user.user_id
+      })
+
+      setShowCreateModal(false)
+      setNewTaskName('')
+      setNewTaskDescription('')
+      setSelectedDate('')
+      fetchCalendarData() // 刷新数据
+      setError('')
+    } catch (err) {
+      setError(err.response?.data?.detail || '创建任务失败')
+      console.error('Error:', err)
+    } finally {
+      setCreating(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="px-4 py-8 sm:px-0">
@@ -203,8 +253,12 @@ function CalendarPage() {
           {events.length === 0 && !error && (
             <div className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-3xl shadow-sm">
               <p className="text-sm text-blue-800 font-semibold">
-                还没有计划。前往 <Link to="/create" className="underline font-bold hover:text-blue-900">创建任务页面</Link> 创建您的第一个任务！
+                还没有计划。您可以：
               </p>
+              <ul className="text-sm text-blue-700 mt-2 list-disc list-inside space-y-1">
+                <li>点击日历上的日期直接创建自定义任务</li>
+                <li>前往 <Link to="/create" className="underline font-bold hover:text-blue-900">创建任务页面</Link> 使用 AI 生成任务计划</li>
+              </ul>
             </div>
           )}
 
@@ -213,6 +267,7 @@ function CalendarPage() {
             initialView="dayGridMonth"
             events={events}
             eventClick={handleEventClick}
+            dateClick={handleDateClick}
             headerToolbar={{
               left: 'prev,next today',
               center: 'title',
@@ -368,6 +423,104 @@ function CalendarPage() {
                     className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-2xl hover:from-red-700 hover:to-red-800 disabled:from-red-400 disabled:to-red-500 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-red-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
                   >
                     {clearing ? '清空中...' : '确认清空'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 创建自定义任务项模态框 */}
+          {showCreateModal && (
+            <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full flex justify-center items-center z-50 p-4">
+              <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full border border-gray-100 transform transition-all">
+                <h3 className="text-3xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">创建自定义任务</h3>
+                
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">日期</label>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">任务名称 *</label>
+                    <input
+                      type="text"
+                      value={newTaskName}
+                      onChange={(e) => setNewTaskName(e.target.value)}
+                      placeholder="例如：完成作业"
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">描述（可选）</label>
+                    <textarea
+                      value={newTaskDescription}
+                      onChange={(e) => setNewTaskDescription(e.target.value)}
+                      placeholder="任务描述..."
+                      rows={2}
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">分配时间（小时）</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0.5"
+                      value={newTaskHours}
+                      onChange={(e) => setNewTaskHours(e.target.value)}
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">重要性</label>
+                    <select
+                      value={newTaskImportance}
+                      onChange={(e) => setNewTaskImportance(e.target.value)}
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="low">低</option>
+                      <option value="medium">中</option>
+                      <option value="high">高</option>
+                    </select>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="mb-4 p-3 bg-red-50 border-2 border-red-200 rounded-xl">
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowCreateModal(false)
+                      setNewTaskName('')
+                      setNewTaskDescription('')
+                      setSelectedDate('')
+                      setError('')
+                    }}
+                    disabled={creating}
+                    className="px-6 py-3 bg-gray-200 text-gray-800 rounded-2xl hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-gray-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleCreateCustomTask}
+                    disabled={creating || !newTaskName.trim()}
+                    className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-indigo-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
+                  >
+                    {creating ? '创建中...' : '创建'}
                   </button>
                 </div>
               </div>

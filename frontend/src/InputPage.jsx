@@ -10,6 +10,7 @@ function InputPage() {
   const [description, setDescription] = useState('')
   const [importance, setImportance] = useState('medium')
   const [isLongTerm, setIsLongTerm] = useState(false)
+  const [startDate, setStartDate] = useState('')
   const [deadline, setDeadline] = useState('')
   const [maxSubtasks, setMaxSubtasks] = useState('')
   const [loading, setLoading] = useState(false)
@@ -37,6 +38,7 @@ function InputPage() {
         description: description,
         importance: importance,
         is_long_term: isLongTerm,
+        start_date: startDate || null,
         deadline: isLongTerm ? null : deadline,
         user_id: user.user_id
       })
@@ -316,6 +318,23 @@ function InputPage() {
               />
             </div>
 
+            {/* 开始日期（可选，适用于所有任务） */}
+            <div>
+              <label htmlFor="startDate" className="block text-sm font-semibold text-gray-700 mb-3">
+                开始日期（可选）
+              </label>
+              <input
+                type="date"
+                id="startDate"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-5 py-3 border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 text-gray-900"
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                如果不填写，将从今天开始。如果填写，计划将从指定日期开始。
+              </p>
+            </div>
+
             {!isLongTerm && (
               <>
                 <div>
@@ -328,7 +347,7 @@ function InputPage() {
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
                     required={!isLongTerm}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={startDate || new Date().toISOString().split('T')[0]}
                     className="w-full px-5 py-3 border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 text-gray-900"
                   />
                 </div>
