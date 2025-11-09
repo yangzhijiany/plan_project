@@ -25,7 +25,7 @@ class Task(Base):
     __tablename__ = "tasks"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)  # 用户ID
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)  # 用户ID
     task_name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=False)  # 自然语言描述
     importance = Column(String, default="medium")  # low, medium, high
@@ -44,7 +44,7 @@ class Subtask(Base):
     __tablename__ = "subtasks"
     
     id = Column(Integer, primary_key=True, index=True)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
     subtask_name = Column(String, nullable=False)
     estimated_hours = Column(Float, nullable=False, default=0.0)  # 预计时间（小时）
     is_completed = Column(Boolean, default=False)
@@ -61,8 +61,8 @@ class DailyTaskItem(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False, index=True)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, index=True)
-    subtask_id = Column(Integer, ForeignKey("subtasks.id"), nullable=True, index=True)  # 长期任务可以为 NULL
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
+    subtask_id = Column(Integer, ForeignKey("subtasks.id", ondelete="CASCADE"), nullable=True, index=True)  # 长期任务可以为 NULL
     allocated_hours = Column(Float, nullable=False, default=0.0)  # 分配的时间（小时）
     is_completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)

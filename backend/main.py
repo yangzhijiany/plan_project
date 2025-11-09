@@ -702,49 +702,60 @@ async def get_calendar(user_id: str = None, start_date: Optional[str] = None, en
         else:
             end = start + timedelta(days=60)  # 默认显示未来60天
         
-        # 只查询该用户的任务
-        items = db.query(DailyTaskItem).join(Task).filter(
+        # 只查询该用户的任务，使用 INNER JOIN 确保任务存在
+        # 对于有 subtask_id 的记录，同时 JOIN Subtask 确保子任务存在
+        
+        # 查询长期任务（subtask_id 为 NULL）且任务存在
+        long_term_items = db.query(DailyTaskItem, Task).join(
+            Task, DailyTaskItem.task_id == Task.id
+        ).filter(
             Task.user_id == user.id,
             DailyTaskItem.date >= start,
-            DailyTaskItem.date <= end
+            DailyTaskItem.date <= end,
+            DailyTaskItem.subtask_id.is_(None)  # 长期任务
+        ).order_by(DailyTaskItem.date).all()
+        
+        # 查询普通任务（有 subtask_id）且任务和子任务都存在
+        regular_items = db.query(DailyTaskItem, Task, Subtask).join(
+            Task, DailyTaskItem.task_id == Task.id
+        ).join(
+            Subtask, DailyTaskItem.subtask_id == Subtask.id
+        ).filter(
+            Task.user_id == user.id,
+            DailyTaskItem.date >= start,
+            DailyTaskItem.date <= end,
+            DailyTaskItem.subtask_id.isnot(None)  # 普通任务
         ).order_by(DailyTaskItem.date).all()
         
         result = []
-        for item in items:
-            task = db.query(Task).filter(Task.id == item.task_id).first()
-            
-            if not task:
-                continue
-            
-            # 长期任务可能没有子任务（subtask_id 为 NULL）
-            if item.subtask_id is None:
-                # 长期任务，显示任务名称
-                result.append(DailyItemResponse(
-                    id=item.id,
-                    date=item.date.isoformat(),
-                    task_id=item.task_id,
-                    task_name=task.task_name,
-                    subtask_id=0,  # 前端使用 0 表示长期任务
-                    subtask_name=task.task_name,  # 长期任务显示任务名称
-                    allocated_hours=item.allocated_hours,
-                    is_completed=item.is_completed,
-                    importance=task.importance
-                ))
-            else:
-                # 普通任务，需要子任务
-                subtask = db.query(Subtask).filter(Subtask.id == item.subtask_id).first()
-                if subtask:
-                    result.append(DailyItemResponse(
-                        id=item.id,
-                        date=item.date.isoformat(),
-                        task_id=item.task_id,
-                        task_name=task.task_name,
-                        subtask_id=item.subtask_id,
-                        subtask_name=subtask.subtask_name,
-                        allocated_hours=item.allocated_hours,
-                        is_completed=item.is_completed,
-                        importance=task.importance
-                    ))
+        
+        # 处理长期任务
+        for item, task in long_term_items:
+            result.append(DailyItemResponse(
+                id=item.id,
+                date=item.date.isoformat(),
+                task_id=item.task_id,
+                task_name=task.task_name,
+                subtask_id=0,  # 前端使用 0 表示长期任务
+                subtask_name=task.task_name,  # 长期任务显示任务名称
+                allocated_hours=item.allocated_hours,
+                is_completed=item.is_completed,
+                importance=task.importance
+            ))
+        
+        # 处理普通任务
+        for item, task, subtask in regular_items:
+            result.append(DailyItemResponse(
+                id=item.id,
+                date=item.date.isoformat(),
+                task_id=item.task_id,
+                task_name=task.task_name,
+                subtask_id=item.subtask_id,
+                subtask_name=subtask.subtask_name,
+                allocated_hours=item.allocated_hours,
+                is_completed=item.is_completed,
+                importance=task.importance
+            ))
         
         return result
     except ValueError as e:
@@ -866,6 +877,12 @@ async def delete_task(task_id: int, user_id: str = None, db: Session = Depends(g
         if not user or task.user_id != user.id:
             raise HTTPException(status_code=403, detail="无权访问此任务")
     
+    # 显式删除相关的每日任务项（双重保险，确保数据一致性）
+    daily_items = db.query(DailyTaskItem).filter(DailyTaskItem.task_id == task_id).all()
+    for item in daily_items:
+        db.delete(item)
+    
+    # 删除任务（SQLAlchemy 的级联删除会处理子任务）
     db.delete(task)
     db.commit()
     return {"message": "任务已删除"}
@@ -914,48 +931,58 @@ async def get_today_plans(user_id: str = None, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="用户未找到")
     
     today = date.today()
-    # 只查询该用户的任务
-    items = db.query(DailyTaskItem).join(Task).filter(
+    # 只查询该用户的任务，使用 INNER JOIN 确保任务存在
+    # 对于有 subtask_id 的记录，同时 JOIN Subtask 确保子任务存在
+    
+    # 查询长期任务（subtask_id 为 NULL）且任务存在
+    long_term_items = db.query(DailyTaskItem, Task).join(
+        Task, DailyTaskItem.task_id == Task.id
+    ).filter(
         Task.user_id == user.id,
-        DailyTaskItem.date == today
+        DailyTaskItem.date == today,
+        DailyTaskItem.subtask_id.is_(None)  # 长期任务
+    ).order_by(DailyTaskItem.created_at).all()
+    
+    # 查询普通任务（有 subtask_id）且任务和子任务都存在
+    regular_items = db.query(DailyTaskItem, Task, Subtask).join(
+        Task, DailyTaskItem.task_id == Task.id
+    ).join(
+        Subtask, DailyTaskItem.subtask_id == Subtask.id
+    ).filter(
+        Task.user_id == user.id,
+        DailyTaskItem.date == today,
+        DailyTaskItem.subtask_id.isnot(None)  # 普通任务
     ).order_by(DailyTaskItem.created_at).all()
     
     result = []
-    for item in items:
-        task = db.query(Task).filter(Task.id == item.task_id).first()
-        
-        if not task:
-            continue
-        
-        # 长期任务可能没有子任务（subtask_id 为 NULL）
-        if item.subtask_id is None:
-            # 长期任务，显示任务名称
-            result.append(DailyItemResponse(
-                id=item.id,
-                date=item.date.isoformat(),
-                task_id=item.task_id,
-                task_name=task.task_name,
-                subtask_id=0,  # 前端使用 0 表示长期任务
-                subtask_name=task.task_name,  # 长期任务显示任务名称
-                allocated_hours=item.allocated_hours,
-                is_completed=item.is_completed,
-                importance=task.importance
-            ))
-        else:
-            # 普通任务，需要子任务
-            subtask = db.query(Subtask).filter(Subtask.id == item.subtask_id).first()
-            if subtask:
-                result.append(DailyItemResponse(
-                    id=item.id,
-                    date=item.date.isoformat(),
-                    task_id=item.task_id,
-                    task_name=task.task_name,
-                    subtask_id=item.subtask_id,
-                    subtask_name=subtask.subtask_name,
-                    allocated_hours=item.allocated_hours,
-                    is_completed=item.is_completed,
-                    importance=task.importance
-                ))
+    
+    # 处理长期任务
+    for item, task in long_term_items:
+        result.append(DailyItemResponse(
+            id=item.id,
+            date=item.date.isoformat(),
+            task_id=item.task_id,
+            task_name=task.task_name,
+            subtask_id=0,  # 前端使用 0 表示长期任务
+            subtask_name=task.task_name,  # 长期任务显示任务名称
+            allocated_hours=item.allocated_hours,
+            is_completed=item.is_completed,
+            importance=task.importance
+        ))
+    
+    # 处理普通任务
+    for item, task, subtask in regular_items:
+        result.append(DailyItemResponse(
+            id=item.id,
+            date=item.date.isoformat(),
+            task_id=item.task_id,
+            task_name=task.task_name,
+            subtask_id=item.subtask_id,
+            subtask_name=subtask.subtask_name,
+            allocated_hours=item.allocated_hours,
+            is_completed=item.is_completed,
+            importance=task.importance
+        ))
     
     return result
 
