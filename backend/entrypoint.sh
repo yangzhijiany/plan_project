@@ -1,9 +1,13 @@
 #!/bin/sh
 set -e
 
+BACKEND_DIR="/app/backend"
+
+# 确保 Python 可以找到后端模块
+export PYTHONPATH="$BACKEND_DIR${PYTHONPATH:+:$PYTHONPATH}"
+
 echo "🔹 正在初始化数据库..."
-cd /app/backend
-python3 -c "import sys; sys.path.insert(0, '.'); from database import init_db; init_db()"
+python3 -c "from database import init_db; init_db()"
 
 echo "✅ 数据库初始化完成，启动 FastAPI 服务..."
 
@@ -11,6 +15,5 @@ echo "✅ 数据库初始化完成，启动 FastAPI 服务..."
 PORT=${PORT:-8000}
 echo "📡 启动服务在端口: $PORT"
 
-# 切换到 backend 目录并启动服务
-cd /app/backend
+# 启动 FastAPI 服务（无需 cd，依赖 PYTHONPATH）
 exec python3 -m uvicorn main:app --host 0.0.0.0 --port "$PORT"
