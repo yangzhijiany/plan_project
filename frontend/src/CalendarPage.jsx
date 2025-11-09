@@ -156,8 +156,24 @@ function CalendarPage() {
   }
 
   const handleCreateCustomTask = async () => {
-    if (!user || !selectedDate || !newTaskName.trim()) {
+    if (!user) {
+      setError('请先创建或选择用户')
+      return
+    }
+
+    if (!newTaskName.trim()) {
       setError('请填写任务名称')
+      return
+    }
+
+    if (!selectedDate) {
+      setError('请选择日期')
+      return
+    }
+
+    const hours = parseFloat(newTaskHours)
+    if (isNaN(hours) || hours <= 0) {
+      setError('请填写有效的时间（大于0的数字）')
       return
     }
 
@@ -166,10 +182,10 @@ function CalendarPage() {
 
     try {
       await axios.post(`${API_BASE_URL}/custom-task-item`, {
-        task_name: newTaskName,
-        description: newTaskDescription || null,
+        task_name: newTaskName.trim(),
+        description: newTaskDescription.trim() || null,
         date: selectedDate,
-        allocated_hours: parseFloat(newTaskHours),
+        allocated_hours: hours,
         importance: newTaskImportance,
         user_id: user.user_id
       })
@@ -178,6 +194,7 @@ function CalendarPage() {
       setNewTaskName('')
       setNewTaskDescription('')
       setSelectedDate('')
+      setNewTaskHours(2)
       fetchCalendarData() // 刷新数据
       setError('')
     } catch (err) {
@@ -214,11 +231,26 @@ function CalendarPage() {
               >
                 刷新
               </button>
+              <button
+                onClick={() => {
+                  // 设置日期为今天
+                  const today = new Date().toISOString().split('T')[0]
+                  setSelectedDate(today)
+                  setNewTaskName('')
+                  setNewTaskDescription('')
+                  setNewTaskHours(2)
+                  setNewTaskImportance('medium')
+                  setShowCreateModal(true)
+                }}
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-2xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
+              >
+                创建任务
+              </button>
               <Link
                 to="/create"
                 className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-3 rounded-2xl hover:from-gray-700 hover:to-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
               >
-                创建任务
+                AI 创建任务
               </Link>
               <button
                 onClick={() => setShowClearConfirm(true)}
@@ -256,8 +288,9 @@ function CalendarPage() {
                 还没有计划。您可以：
               </p>
               <ul className="text-sm text-blue-700 mt-2 list-disc list-inside space-y-1">
-                <li>点击日历上的日期直接创建自定义任务</li>
-                <li>前往 <Link to="/create" className="underline font-bold hover:text-blue-900">创建任务页面</Link> 使用 AI 生成任务计划</li>
+                <li>点击右上角的"创建任务"按钮快速创建自定义任务</li>
+                <li>点击日历上的日期直接创建该日期的任务</li>
+                <li>点击"AI 创建任务"使用 AI 生成任务计划</li>
               </ul>
             </div>
           )}
@@ -437,17 +470,9 @@ function CalendarPage() {
                 
                 <div className="space-y-4 mb-6">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">日期</label>
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">任务名称 *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      任务名称 <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       value={newTaskName}
@@ -455,7 +480,50 @@ function CalendarPage() {
                       placeholder="例如：完成作业"
                       className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                       required
+                      autoFocus
                     />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      日期 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      时间（小时） <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0.5"
+                      value={newTaskHours}
+                      onChange={(e) => setNewTaskHours(e.target.value)}
+                      placeholder="例如：2"
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">重要性（可选）</label>
+                    <select
+                      value={newTaskImportance}
+                      onChange={(e) => setNewTaskImportance(e.target.value)}
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="low">低</option>
+                      <option value="medium">中</option>
+                      <option value="high">高</option>
+                    </select>
                   </div>
                   
                   <div>
@@ -467,31 +535,6 @@ function CalendarPage() {
                       rows={2}
                       className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
                     />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">分配时间（小时）</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0.5"
-                      value={newTaskHours}
-                      onChange={(e) => setNewTaskHours(e.target.value)}
-                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">重要性</label>
-                    <select
-                      value={newTaskImportance}
-                      onChange={(e) => setNewTaskImportance(e.target.value)}
-                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="low">低</option>
-                      <option value="medium">中</option>
-                      <option value="high">高</option>
-                    </select>
                   </div>
                 </div>
 
@@ -508,6 +551,8 @@ function CalendarPage() {
                       setNewTaskName('')
                       setNewTaskDescription('')
                       setSelectedDate('')
+                      setNewTaskHours(2)
+                      setNewTaskImportance('medium')
                       setError('')
                     }}
                     disabled={creating}
@@ -517,7 +562,7 @@ function CalendarPage() {
                   </button>
                   <button
                     onClick={handleCreateCustomTask}
-                    disabled={creating || !newTaskName.trim()}
+                    disabled={creating || !newTaskName.trim() || !selectedDate}
                     className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-indigo-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
                   >
                     {creating ? '创建中...' : '创建'}
