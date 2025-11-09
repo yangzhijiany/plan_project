@@ -100,7 +100,10 @@ else:
 def get_openai_client():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY 未设置，请在 .env 文件中配置")
+        raise HTTPException(
+            status_code=500, 
+            detail="OPENAI_API_KEY 未设置。请在生产环境的环境变量中配置 OPENAI_API_KEY"
+        )
     return OpenAI(api_key=api_key)
 
 
