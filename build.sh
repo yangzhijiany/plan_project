@@ -34,7 +34,7 @@ cd ..
 # 初始化数据库
 echo "🗄️  初始化数据库..."
 cd backend
-python -c "import sys; sys.path.insert(0, '.'); from database import init_db; init_db()"
+python3 -c "import sys; sys.path.insert(0, '.'); from database import init_db; init_db()"
 echo "✅ 数据库初始化完成"
 cd ..
 
