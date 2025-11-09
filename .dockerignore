@@ -50,7 +50,7 @@ backend/plans.db
 .railway/
 
 # Docker
-Dockerfile
+# Dockerfile (需要包含在构建中)
 .dockerignore
-docker-compose.yml
+# docker-compose.yml (不需要在镜像中)
 
