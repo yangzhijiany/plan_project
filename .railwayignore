@@ -1,3 +1,6 @@
+# Railway 忽略文件（类似于 .gitignore）
+# 这些文件不会被上传到 Railway
+
 # Python
 __pycache__/
 *.py[cod]
@@ -36,24 +39,25 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Build (不要忽略 dist，我们需要它)
-# frontend/dist/
+# Build
 backend/plans.db
 *.db
+*.sqlite
+*.sqlite3
 
 # Git
 .git/
 .gitignore
 .gitattributes
 
-# Documentation (保留 README，忽略其他)
+# Documentation
 *.md
 !README.md
 
 # Railway
 .railway/
 
-# Docker (保留 Dockerfile)
+# Docker
 .dockerignore
 
 # 其他
