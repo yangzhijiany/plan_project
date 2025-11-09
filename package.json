@@ -1,0 +1,14 @@
+{
+  "name": "llm-task-planner",
+  "version": "1.0.0",
+  "description": "LLM Task Planner - Full Stack Application",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "python": "3.13.0"
+  }
+}
+

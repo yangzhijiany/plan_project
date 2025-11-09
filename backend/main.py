@@ -22,7 +22,20 @@ load_dotenv()
 app = FastAPI(title="LLM Task Planner API")
 
 # 获取前端构建目录路径
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend" / "dist"
+# 支持多种路径：开发环境和生产环境（Railway）
+# Railway 的工作目录是 /app
+current_dir = Path(__file__).parent.parent.resolve()
+FRONTEND_DIR = current_dir / "frontend" / "dist"
+
+# 如果相对路径不存在，尝试绝对路径（Railway 环境）
+if not FRONTEND_DIR.exists():
+    FRONTEND_DIR = Path("/app/frontend/dist")
+    
+# 如果还是不存在，尝试当前工作目录
+if not FRONTEND_DIR.exists():
+    FRONTEND_DIR = Path.cwd() / "frontend" / "dist"
+
+# 确保目录存在（即使为空）
 FRONTEND_DIR.mkdir(parents=True, exist_ok=True)
 
 # 配置 CORS
@@ -40,8 +53,27 @@ app.add_middleware(
 init_db()
 
 # 挂载静态文件（前端构建产物）
-# 检查前端构建目录是否存在
-frontend_built = FRONTEND_DIR.exists() and any(FRONTEND_DIR.iterdir())
+# 检查前端构建目录是否存在且有文件
+def check_frontend_built():
+    """检查前端是否已构建"""
+    if not FRONTEND_DIR.exists():
+        return False, f"Directory does not exist: {FRONTEND_DIR}"
+    
+    try:
+        files = list(FRONTEND_DIR.iterdir())
+        if not files:
+            return False, f"Directory is empty: {FRONTEND_DIR}"
+        
+        # 检查是否有 index.html
+        index_file = FRONTEND_DIR / "index.html"
+        if not index_file.exists():
+            return False, f"index.html not found in: {FRONTEND_DIR}"
+        
+        return True, f"Frontend built successfully: {len(files)} files"
+    except Exception as e:
+        return False, f"Error checking directory: {str(e)}"
+
+frontend_built, frontend_status = check_frontend_built()
 
 if frontend_built:
     try:
@@ -49,12 +81,20 @@ if frontend_built:
         assets_dir = FRONTEND_DIR / "assets"
         if assets_dir.exists():
             app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
-        print(f"✅ Frontend static files mounted from {FRONTEND_DIR}")
+        print(f"✅ {frontend_status}")
+        print(f"   Frontend directory: {FRONTEND_DIR}")
     except Exception as e:
         print(f"⚠️  Warning: Could not mount static files: {e}")
 else:
-    print(f"⚠️  Frontend not built. Frontend directory: {FRONTEND_DIR}")
-    print(f"   Exists: {FRONTEND_DIR.exists()}, Has files: {any(FRONTEND_DIR.iterdir()) if FRONTEND_DIR.exists() else False}")
+    print(f"⚠️  {frontend_status}")
+    print(f"   Frontend directory: {FRONTEND_DIR}")
+    # 列出目录内容以便调试
+    if FRONTEND_DIR.exists():
+        try:
+            files = list(FRONTEND_DIR.iterdir())
+            print(f"   Files in directory: {[f.name for f in files]}")
+        except Exception as e:
+            print(f"   Error listing files: {e}")
 
 # 初始化 OpenAI 客户端（延迟初始化，避免启动时就需要 API key）
 def get_openai_client():
