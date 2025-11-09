@@ -8,9 +8,17 @@ venv/
 env/
 ENV/
 .venv
+*.egg-info/
+.pytest_cache/
+
+# Database files (SQLite)
 *.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
+backend/plans.db
+plans.db
 
 # Node
 node_modules/

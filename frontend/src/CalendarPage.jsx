@@ -34,7 +34,11 @@ function CalendarPage() {
 
     try {
       setLoading(true)
-      const response = await axios.get(`${API_BASE_URL}/calendar?user_id=${user.user_id}`)
+      // 获取用户时区偏移（小时）
+      const timezoneOffset = -new Date().getTimezoneOffset() / 60
+      const response = await axios.get(
+        `${API_BASE_URL}/calendar?user_id=${user.user_id}&timezone_offset=${timezoneOffset}`
+      )
       
       setItems(response.data)
       

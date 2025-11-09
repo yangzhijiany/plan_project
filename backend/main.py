@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, validator
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 import json
 import os
@@ -17,6 +17,24 @@ import uuid
 
 # 加载环境变量
 load_dotenv()
+
+# 根据时区偏移获取"今天"的日期
+def get_today_with_timezone(timezone_offset: int = 8):
+    """
+    根据时区偏移获取"今天"的日期
+    Args:
+        timezone_offset: 时区偏移（小时），例如 8 表示 UTC+8（中国时区），-5 表示 UTC-5（美国东部）
+    Returns:
+        该时区的今天日期
+    """
+    utc_now = datetime.utcnow()
+    local_now = utc_now + timedelta(hours=timezone_offset)
+    return local_now.date()
+
+# 获取中国时区（UTC+8）的"今天"（向后兼容）
+def get_today_cst():
+    """获取中国时区（UTC+8）的今天日期"""
+    return get_today_with_timezone(8)
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="LLM Task Planner API")
@@ -264,7 +282,7 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
         deadline_date = None
         if task.deadline and not task.is_long_term:
             deadline_date = datetime.strptime(task.deadline, "%Y-%m-%d").date()
-            if deadline_date < date.today():
+            if deadline_date < get_today_cst():
                 raise HTTPException(status_code=400, detail="截止日期不能早于今天")
         
         db_task = Task(
@@ -376,7 +394,7 @@ async def generate_subtasks(task_id: int, request: GenerateSubtasksRequest, db: 
             raise HTTPException(status_code=404, detail="任务未找到")
         
         # 构建提示词
-        today = date.today()
+        today = get_today_cst()
         deadline_str = request.deadline if request.deadline else "无截止日期（长期任务）"
         
         prompt = f"""作为一个专业的学习和工作计划助手，请根据以下任务描述，生成详细的子任务列表。
@@ -473,7 +491,7 @@ async def generate_plan(task_id: int, user_id: str = None, db: Session = Depends
         # 长期任务不需要子任务，直接生成计划
         if task.is_long_term:
             # 为长期任务生成未来30天的计划
-            start_date = date.today()
+            start_date = get_today_cst()
             end_date = start_date + timedelta(days=30)
             
             # 创建每日计划项（长期任务每天分配固定时间）
@@ -516,7 +534,7 @@ async def generate_plan(task_id: int, user_id: str = None, db: Session = Depends
         if not task.deadline:
             raise HTTPException(status_code=400, detail="非长期任务必须设置截止日期")
         
-        start_date = date.today()
+        start_date = get_today_cst()
         end_date = task.deadline
         days = (end_date - start_date).days + 1
         if days <= 0:
@@ -681,8 +699,21 @@ async def update_subtask(subtask_id: int, update: SubtaskUpdate, db: Session = D
 
 
 @app.get("/calendar")
-async def get_calendar(user_id: str = None, start_date: Optional[str] = None, end_date: Optional[str] = None, db: Session = Depends(get_db)):
-    """获取日历视图数据"""
+async def get_calendar(
+    user_id: str = None, 
+    start_date: Optional[str] = None, 
+    end_date: Optional[str] = None,
+    timezone_offset: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    获取日历视图数据
+    Args:
+        user_id: 用户ID
+        start_date: 开始日期（YYYY-MM-DD），如果不提供，默认使用今天（根据时区）
+        end_date: 结束日期（YYYY-MM-DD），如果不提供，默认显示未来60天
+        timezone_offset: 时区偏移（小时），例如 8 表示 UTC+8
+    """
     try:
         if not user_id:
             raise HTTPException(status_code=400, detail="必须提供 user_id 参数")
@@ -695,7 +726,11 @@ async def get_calendar(user_id: str = None, start_date: Optional[str] = None, en
         if start_date:
             start = datetime.strptime(start_date, "%Y-%m-%d").date()
         else:
-            start = date.today()
+            # 使用用户时区计算"今天"，如果未提供则使用默认值（UTC+8）
+            if timezone_offset is not None:
+                start = get_today_with_timezone(timezone_offset)
+            else:
+                start = get_today_cst()
         
         if end_date:
             end = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -920,8 +955,18 @@ async def clear_calendar(user_id: str = None, db: Session = Depends(get_db)):
 
 
 @app.get("/today")
-async def get_today_plans(user_id: str = None, db: Session = Depends(get_db)):
-    """获取今日计划"""
+async def get_today_plans(
+    user_id: str = None, 
+    timezone_offset: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    获取今日计划
+    Args:
+        user_id: 用户ID
+        timezone_offset: 时区偏移（小时），例如 8 表示 UTC+8，-5 表示 UTC-5
+                        如果不提供，默认使用 UTC+8（中国时区）
+    """
     if not user_id:
         raise HTTPException(status_code=400, detail="必须提供 user_id 参数")
     
@@ -930,7 +975,12 @@ async def get_today_plans(user_id: str = None, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="用户未找到")
     
-    today = date.today()
+    # 根据时区偏移计算"今天"，如果未提供则使用默认值（UTC+8）
+    if timezone_offset is not None:
+        today = get_today_with_timezone(timezone_offset)
+    else:
+        # 默认使用 UTC+8（中国时区），保持向后兼容
+        today = get_today_cst()
     # 只查询该用户的任务，使用 INNER JOIN 确保任务存在
     # 对于有 subtask_id 的记录，同时 JOIN Subtask 确保子任务存在
     

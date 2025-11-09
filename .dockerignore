@@ -37,8 +37,18 @@ yarn-error.log*
 Thumbs.db
 
 # Build
+dist/
+build/
+
+# Database files (SQLite) - 数据库文件不应该被打包到镜像中
+# Railway 上应该使用 PostgreSQL，数据存储在 Railway 的数据库服务中
 backend/plans.db
+plans.db
 *.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
 
 # Git
 .git/
