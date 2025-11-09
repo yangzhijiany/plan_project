@@ -30,6 +30,40 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # 创建数据库表
 def init_db():
     Base.metadata.create_all(bind=engine)
+    # 运行迁移（添加新字段等）
+    _run_migrations()
+
+def _run_migrations():
+    """运行数据库迁移"""
+    from sqlalchemy import text, inspect
+    
+    try:
+        inspector = inspect(engine)
+        
+        # 检查 subtasks 表是否存在
+        if 'subtasks' not in inspector.get_table_names():
+            return
+        
+        # 检查 description 字段是否存在
+        columns = [col['name'] for col in inspector.get_columns('subtasks')]
+        
+        if 'description' not in columns:
+            print("🔹 正在添加 description 字段到 subtasks 表...")
+            try:
+                with engine.begin() as conn:
+                    # 使用 ALTER TABLE 添加字段
+                    conn.execute(text("ALTER TABLE subtasks ADD COLUMN description TEXT"))
+                print("✅ description 字段已添加")
+            except Exception as e:
+                # 如果字段已存在（某些数据库会抛出异常），忽略错误
+                error_str = str(e).lower()
+                if "duplicate column" in error_str or "already exists" in error_str:
+                    print("✅ description 字段已存在")
+                else:
+                    print(f"⚠️  添加 description 字段时出现警告: {str(e)}")
+    except Exception as e:
+        # 迁移失败不应阻止应用启动
+        print(f"⚠️  数据库迁移检查失败: {str(e)}")
 
 # 获取数据库会话
 def get_db():

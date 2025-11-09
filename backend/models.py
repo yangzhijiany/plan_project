@@ -46,6 +46,7 @@ class Subtask(Base):
     id = Column(Integer, primary_key=True, index=True)
     task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
     subtask_name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)  # 子任务描述（可选）
     estimated_hours = Column(Float, nullable=False, default=0.0)  # 预计时间（小时）
     is_completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)

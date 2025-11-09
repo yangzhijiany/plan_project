@@ -149,6 +149,7 @@ class TaskCreate(BaseModel):
 class SubtaskResponse(BaseModel):
     id: int
     subtask_name: str
+    description: Optional[str] = None
     estimated_hours: float
     is_completed: bool
 
@@ -190,18 +191,22 @@ class GenerateSubtasksRequest(BaseModel):
 
 
 class SubtaskUpdate(BaseModel):
-    estimated_hours: float = 0.0
+    subtask_name: Optional[str] = None
+    description: Optional[str] = None
+    estimated_hours: Optional[float] = None
     
     class Config:
         json_schema_extra = {
             "example": {
+                "subtask_name": "完成第一部分",
+                "description": "详细描述...",
                 "estimated_hours": 2.5
             }
         }
         
         @validator('estimated_hours')
         def validate_hours(cls, v):
-            if v < 0:
+            if v is not None and v < 0:
                 raise ValueError('预计时间不能为负数')
             return v
 
@@ -339,6 +344,7 @@ async def get_tasks(user_id: str = None, db: Session = Depends(get_db)):
             SubtaskResponse(
                 id=st.id,
                 subtask_name=st.subtask_name,
+                description=st.description,
                 estimated_hours=st.estimated_hours,
                 is_completed=st.is_completed
             )
@@ -374,6 +380,7 @@ async def get_task(task_id: int, user_id: str = None, db: Session = Depends(get_
         SubtaskResponse(
             id=st.id,
             subtask_name=st.subtask_name,
+            description=st.description,
             estimated_hours=st.estimated_hours,
             is_completed=st.is_completed
         )
@@ -483,6 +490,7 @@ async def generate_subtasks(task_id: int, request: GenerateSubtasksRequest, db: 
             created_subtasks.append(SubtaskResponse(
                 id=db_subtask.id,
                 subtask_name=db_subtask.subtask_name,
+                description=db_subtask.description,
                 estimated_hours=db_subtask.estimated_hours,
                 is_completed=db_subtask.is_completed
             ))
@@ -693,22 +701,33 @@ async def generate_plan(task_id: int, user_id: str = None, db: Session = Depends
 
 @app.put("/subtasks/{subtask_id}")
 async def update_subtask(subtask_id: int, update: SubtaskUpdate, db: Session = Depends(get_db)):
-    """更新子任务的预计时间"""
+    """更新子任务（名称、描述、预计时间）"""
     try:
         subtask = db.query(Subtask).filter(Subtask.id == subtask_id).first()
         if not subtask:
             raise HTTPException(status_code=404, detail="子任务未找到")
         
-        if update.estimated_hours < 0:
-            raise HTTPException(status_code=400, detail="预计时间不能为负数")
+        # 更新名称（如果提供）
+        if update.subtask_name is not None:
+            subtask.subtask_name = update.subtask_name
         
-        subtask.estimated_hours = update.estimated_hours
+        # 更新描述（如果提供，允许设置为空字符串来清空描述）
+        if update.description is not None:
+            subtask.description = update.description if update.description.strip() else None
+        
+        # 更新预计时间（如果提供）
+        if update.estimated_hours is not None:
+            if update.estimated_hours < 0:
+                raise HTTPException(status_code=400, detail="预计时间不能为负数")
+            subtask.estimated_hours = update.estimated_hours
+        
         db.commit()
         db.refresh(subtask)
         
         return SubtaskResponse(
             id=subtask.id,
             subtask_name=subtask.subtask_name,
+            description=subtask.description,
             estimated_hours=subtask.estimated_hours,
             is_completed=subtask.is_completed
         )

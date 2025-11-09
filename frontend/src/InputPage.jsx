@@ -127,21 +127,32 @@ function InputPage() {
     }
   }
 
-  const handleUpdateSubtaskTime = async (subtaskId, newHours) => {
+  const handleUpdateSubtask = async (subtaskId, updates) => {
     try {
-      const hours = typeof newHours === 'number' ? newHours : parseFloat(newHours)
-      
-      if (isNaN(hours) || hours < 0) {
-        setError('请输入有效的时间（大于等于0的数字）')
-        // 恢复原值
-        const taskResponse = await axios.get(`${API_BASE_URL}/tasks/${task.id}`)
-        setTask(taskResponse.data)
-        return
+      // 构建更新对象，只包含提供的字段
+      const updateData = {}
+      if (updates.subtask_name !== undefined) {
+        updateData.subtask_name = updates.subtask_name
+      }
+      if (updates.description !== undefined) {
+        updateData.description = updates.description
+      }
+      if (updates.estimated_hours !== undefined) {
+        const hours = typeof updates.estimated_hours === 'number' 
+          ? updates.estimated_hours 
+          : parseFloat(updates.estimated_hours)
+        
+        if (isNaN(hours) || hours < 0) {
+          setError('请输入有效的时间（大于等于0的数字）')
+          // 恢复原值
+          const taskResponse = await axios.get(`${API_BASE_URL}/tasks/${task.id}`)
+          setTask(taskResponse.data)
+          return
+        }
+        updateData.estimated_hours = hours
       }
       
-      const response = await axios.put(`${API_BASE_URL}/subtasks/${subtaskId}`, {
-        estimated_hours: hours
-      }, {
+      const response = await axios.put(`${API_BASE_URL}/subtasks/${subtaskId}`, updateData, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -153,10 +164,10 @@ function InputPage() {
       setSubtasks(taskResponse.data.subtasks)
       setError('') // 清除错误
     } catch (err) {
-      console.error('更新子任务时间错误:', err.response?.data || err)
+      console.error('更新子任务错误:', err.response?.data || err)
       
       // 尝试解析错误信息
-      let errorMsg = '更新子任务时间失败'
+      let errorMsg = '更新子任务失败'
       if (err.response?.data) {
         if (typeof err.response.data.detail === 'string') {
           errorMsg = err.response.data.detail
@@ -178,6 +189,11 @@ function InputPage() {
         console.error('获取任务失败:', fetchErr)
       }
     }
+  }
+  
+  // 向后兼容：保留原有的更新时间的函数
+  const handleUpdateSubtaskTime = async (subtaskId, newHours) => {
+    await handleUpdateSubtask(subtaskId, { estimated_hours: newHours })
   }
 
   const handleGeneratePlan = async () => {
@@ -381,57 +397,107 @@ function InputPage() {
                           // 从 task.subtasks 中获取最新的值，而不是从 subtasks state
                           const currentSubtask = task.subtasks.find(st => st.id === subtask.id) || subtask
                           return (
-                            <div key={subtask.id} className="flex items-center justify-between p-5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl border-2 border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
-                              <div className="flex-1">
-                                <p className="text-sm font-bold text-gray-900">{subtask.subtask_name}</p>
-                              </div>
-                              <div className="flex items-center space-x-3">
-                                <label className="text-sm font-semibold text-gray-700">时间（小时）:</label>
-                                <input
-                                  type="number"
-                                  step="0.5"
-                                  min="0"
-                                  value={currentSubtask.estimated_hours}
-                                  onChange={(e) => {
-                                    const inputValue = e.target.value
-                                    // 允许空字符串用于输入，但保持显示
-                                    if (inputValue === '') {
-                                      // 暂时允许空字符串，在 onBlur 时处理
-                                      return
-                                    }
-                                    const newValue = parseFloat(inputValue)
-                                    if (!isNaN(newValue) && newValue >= 0) {
-                                      // 只更新任务中的子任务
+                            <div key={subtask.id} className="p-5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl border-2 border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
+                              <div className="space-y-3">
+                                {/* 子任务名称 */}
+                                <div>
+                                  <label className="block text-xs font-semibold text-gray-600 mb-1">子任务名称</label>
+                                  <input
+                                    type="text"
+                                    value={currentSubtask.subtask_name || ''}
+                                    onChange={(e) => {
                                       setTask({
                                         ...task,
                                         subtasks: task.subtasks.map(st => 
                                           st.id === subtask.id 
-                                            ? { ...st, estimated_hours: newValue }
+                                            ? { ...st, subtask_name: e.target.value }
                                             : st
                                         )
                                       })
-                                    }
-                                  }}
-                                  onBlur={async (e) => {
-                                    const inputValue = e.target.value
-                                    let newValue
-                                    
-                                    if (inputValue === '' || inputValue === null || inputValue === undefined) {
-                                      // 如果为空，使用原值
-                                      newValue = currentSubtask.estimated_hours
-                                      // 恢复显示
+                                    }}
+                                    onBlur={async (e) => {
+                                      const newName = e.target.value.trim()
+                                      if (newName && newName !== currentSubtask.subtask_name) {
+                                        await handleUpdateSubtask(subtask.id, { subtask_name: newName })
+                                      } else if (!newName) {
+                                        // 如果名称为空，恢复原值
+                                        setTask({
+                                          ...task,
+                                          subtasks: task.subtasks.map(st => 
+                                            st.id === subtask.id 
+                                              ? { ...st, subtask_name: currentSubtask.subtask_name }
+                                              : st
+                                          )
+                                        })
+                                      }
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.target.blur()
+                                      }
+                                    }}
+                                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-xl text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300"
+                                  />
+                                </div>
+                                
+                                {/* 子任务描述 */}
+                                <div>
+                                  <label className="block text-xs font-semibold text-gray-600 mb-1">描述（可选）</label>
+                                  <textarea
+                                    value={currentSubtask.description || ''}
+                                    onChange={(e) => {
                                       setTask({
                                         ...task,
                                         subtasks: task.subtasks.map(st => 
                                           st.id === subtask.id 
-                                            ? { ...st, estimated_hours: currentSubtask.estimated_hours }
+                                            ? { ...st, description: e.target.value }
                                             : st
                                         )
                                       })
-                                    } else {
-                                      newValue = parseFloat(inputValue)
-                                      if (isNaN(newValue) || newValue < 0) {
-                                        // 无效值，恢复原值
+                                    }}
+                                    onBlur={async (e) => {
+                                      const newDescription = e.target.value.trim()
+                                      if (newDescription !== (currentSubtask.description || '')) {
+                                        await handleUpdateSubtask(subtask.id, { description: newDescription || null })
+                                      }
+                                    }}
+                                    rows={2}
+                                    placeholder="添加子任务描述..."
+                                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-xl text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 resize-none"
+                                  />
+                                </div>
+                                
+                                {/* 预计时间 */}
+                                <div className="flex items-center justify-between">
+                                  <label className="text-sm font-semibold text-gray-700">预计时间（小时）</label>
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    value={currentSubtask.estimated_hours}
+                                    onChange={(e) => {
+                                      const inputValue = e.target.value
+                                      if (inputValue === '') {
+                                        return
+                                      }
+                                      const newValue = parseFloat(inputValue)
+                                      if (!isNaN(newValue) && newValue >= 0) {
+                                        setTask({
+                                          ...task,
+                                          subtasks: task.subtasks.map(st => 
+                                            st.id === subtask.id 
+                                              ? { ...st, estimated_hours: newValue }
+                                              : st
+                                          )
+                                        })
+                                      }
+                                    }}
+                                    onBlur={async (e) => {
+                                      const inputValue = e.target.value
+                                      let newValue
+                                      
+                                      if (inputValue === '' || inputValue === null || inputValue === undefined) {
+                                        newValue = currentSubtask.estimated_hours
                                         setTask({
                                           ...task,
                                           subtasks: task.subtasks.map(st => 
@@ -440,23 +506,33 @@ function InputPage() {
                                               : st
                                           )
                                         })
-                                        return
+                                      } else {
+                                        newValue = parseFloat(inputValue)
+                                        if (isNaN(newValue) || newValue < 0) {
+                                          setTask({
+                                            ...task,
+                                            subtasks: task.subtasks.map(st => 
+                                              st.id === subtask.id 
+                                                ? { ...st, estimated_hours: currentSubtask.estimated_hours }
+                                                : st
+                                            )
+                                          })
+                                          return
+                                        }
                                       }
-                                    }
-                                    
-                                    // 保存到服务器
-                                    if (newValue !== currentSubtask.estimated_hours) {
-                                      await handleUpdateSubtaskTime(subtask.id, newValue)
-                                    }
-                                  }}
-                                  onKeyDown={(e) => {
-                                    // 按 Enter 键时触发保存
-                                    if (e.key === 'Enter') {
-                                      e.target.blur()
-                                    }
-                                  }}
-                                  className="w-24 px-3 py-2 border-2 border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300"
-                                />
+                                      
+                                      if (newValue !== currentSubtask.estimated_hours) {
+                                        await handleUpdateSubtask(subtask.id, { estimated_hours: newValue })
+                                      }
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.target.blur()
+                                      }
+                                    }}
+                                    className="w-24 px-3 py-2 border-2 border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300"
+                                  />
+                                </div>
                               </div>
                             </div>
                           )
