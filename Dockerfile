@@ -39,8 +39,11 @@ RUN chmod +x /entrypoint.sh
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1
 
-# 暴露端口
+# 暴露端口（Railway 会使用环境变量 PORT）
 EXPOSE 8000
 
-# 明确使用绝对路径启动
-CMD ["sh", "/entrypoint.sh"]
+# 设置工作目录为 backend
+WORKDIR /app/backend
+
+# 明确使用绝对路径启动（使用 sh -c 确保环境变量正确展开）
+CMD ["/bin/sh", "/entrypoint.sh"]
