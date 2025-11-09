@@ -29,7 +29,22 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # 创建数据库表
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    from sqlalchemy import inspect
+    
+    # 检查是否需要创建表（优化：只在必要时输出日志）
+    inspector = inspect(engine)
+    existing_tables = inspector.get_table_names()
+    required_tables = ['users', 'tasks', 'subtasks', 'daily_task_items']
+    missing_tables = [t for t in required_tables if t not in existing_tables]
+    
+    if missing_tables:
+        print(f"🔹 正在创建缺失的表: {', '.join(missing_tables)}...")
+        Base.metadata.create_all(bind=engine)
+        print("✅ 数据库表创建完成")
+    else:
+        # 表已存在，静默执行（确保结构是最新的）
+        Base.metadata.create_all(bind=engine)
+    
     # 运行迁移（添加新字段等）
     _run_migrations()
 
