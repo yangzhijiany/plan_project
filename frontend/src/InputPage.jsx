@@ -11,6 +11,7 @@ function InputPage() {
   const [importance, setImportance] = useState('medium')
   const [isLongTerm, setIsLongTerm] = useState(false)
   const [deadline, setDeadline] = useState('')
+  const [maxSubtasks, setMaxSubtasks] = useState('')
   const [loading, setLoading] = useState(false)
   const [task, setTask] = useState(null)
   const [subtasks, setSubtasks] = useState([])
@@ -47,11 +48,20 @@ function InputPage() {
       if (!isLongTerm) {
         setLoading(true)
         try {
-          const subtasksResponse = await axios.post(`${API_BASE_URL}/tasks/${newTask.id}/generate-subtasks?user_id=${user.user_id}`, {
+          const requestBody = {
             description: description,
             deadline: deadline,
             is_long_term: false
-          })
+          }
+          // 如果指定了子任务数量上限，添加到请求中
+          if (maxSubtasks && maxSubtasks.trim() !== '') {
+            const maxSubtasksNum = parseInt(maxSubtasks, 10)
+            if (!isNaN(maxSubtasksNum) && maxSubtasksNum > 0) {
+              requestBody.max_subtasks = maxSubtasksNum
+            }
+          }
+          
+          const subtasksResponse = await axios.post(`${API_BASE_URL}/tasks/${newTask.id}/generate-subtasks?user_id=${user.user_id}`, requestBody)
           
           // 更新任务信息以包含新创建的子任务
           const taskResponse = await axios.get(`${API_BASE_URL}/tasks/${newTask.id}?user_id=${user.user_id}`)
@@ -90,11 +100,20 @@ function InputPage() {
     setError('')
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/tasks/${task.id}/generate-subtasks?user_id=${user.user_id}`, {
+      const requestBody = {
         description: description,
         deadline: isLongTerm ? null : deadline,
         is_long_term: isLongTerm
-      })
+      }
+      // 如果指定了子任务数量上限，添加到请求中
+      if (maxSubtasks && maxSubtasks.trim() !== '') {
+        const maxSubtasksNum = parseInt(maxSubtasks, 10)
+        if (!isNaN(maxSubtasksNum) && maxSubtasksNum > 0) {
+          requestBody.max_subtasks = maxSubtasksNum
+        }
+      }
+      
+      const response = await axios.post(`${API_BASE_URL}/tasks/${task.id}/generate-subtasks?user_id=${user.user_id}`, requestBody)
 
       // 更新任务信息以包含新创建的子任务
       const taskResponse = await axios.get(`${API_BASE_URL}/tasks/${task.id}?user_id=${user.user_id}`)
@@ -282,20 +301,40 @@ function InputPage() {
             </div>
 
             {!isLongTerm && (
-              <div>
-                <label htmlFor="deadline" className="block text-sm font-semibold text-gray-700 mb-3">
-                  截止日期
-                </label>
-                <input
-                  type="date"
-                  id="deadline"
-                  value={deadline}
-                  onChange={(e) => setDeadline(e.target.value)}
-                  required={!isLongTerm}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-5 py-3 border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 text-gray-900"
-                />
-              </div>
+              <>
+                <div>
+                  <label htmlFor="deadline" className="block text-sm font-semibold text-gray-700 mb-3">
+                    截止日期
+                  </label>
+                  <input
+                    type="date"
+                    id="deadline"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    required={!isLongTerm}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-5 py-3 border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 text-gray-900"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="maxSubtasks" className="block text-sm font-semibold text-gray-700 mb-3">
+                    子任务数量上限（可选）
+                  </label>
+                  <input
+                    type="number"
+                    id="maxSubtasks"
+                    value={maxSubtasks}
+                    onChange={(e) => setMaxSubtasks(e.target.value)}
+                    min="1"
+                    placeholder="例如：1（只生成1个子任务）"
+                    className="w-full px-5 py-3 border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 text-gray-900 placeholder-gray-400"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    如果不填写，AI 将根据任务复杂度自动决定子任务数量。填写后，AI 最多只会生成指定数量的子任务。
+                  </p>
+                </div>
+              </>
             )}
 
             <button

@@ -180,6 +180,13 @@ class GenerateSubtasksRequest(BaseModel):
     description: str
     deadline: Optional[str] = None
     is_long_term: bool = False
+    max_subtasks: Optional[int] = None  # 子任务数量上限，如果不指定则不做限制
+    
+    @validator('max_subtasks')
+    def validate_max_subtasks(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError('子任务数量上限必须大于 0')
+        return v
 
 
 class SubtaskUpdate(BaseModel):
@@ -397,12 +404,17 @@ async def generate_subtasks(task_id: int, request: GenerateSubtasksRequest, db: 
         today = get_today_cst()
         deadline_str = request.deadline if request.deadline else "无截止日期（长期任务）"
         
+        # 构建子任务数量限制的说明
+        max_subtasks_note = ""
+        if request.max_subtasks is not None and request.max_subtasks > 0:
+            max_subtasks_note = f"\n重要：最多只生成 {request.max_subtasks} 个子任务。如果任务很简单，可以只生成 1 个子任务，甚至直接将整个任务作为一个子任务。"
+        
         prompt = f"""作为一个专业的学习和工作计划助手，请根据以下任务描述，生成详细的子任务列表。
 
 任务名称: {task.task_name}
 任务描述: {request.description}
 截止日期: {deadline_str}
-是否为长期任务: {'是' if request.is_long_term else '否'}
+是否为长期任务: {'是' if request.is_long_term else '否'}{max_subtasks_note}
 
 要求:
 1. 仔细分析任务描述，识别所有需要完成的子任务
@@ -410,7 +422,9 @@ async def generate_subtasks(task_id: int, request: GenerateSubtasksRequest, db: 
 3. 为每个子任务估算完成所需的时间（单位：小时），要合理估算
 4. 子任务应该具体、明确，便于执行
 5. 如果任务较大，可以拆分成多个子任务
-6. 返回 JSON 格式，格式如下:
+6. 如果指定了子任务数量上限，请严格遵守上限，不要超过
+7. 如果任务很简单或用户明确表示只需要少量子任务，请减少子任务数量，甚至可以将整个任务作为一个子任务
+8. 返回 JSON 格式，格式如下:
 {{
   "subtasks": [
     {{"name": "子任务1", "estimated_hours": 2.0}},
@@ -448,9 +462,16 @@ async def generate_subtasks(task_id: int, request: GenerateSubtasksRequest, db: 
         
         result = json.loads(content)
         
+        # 获取子任务列表
+        subtasks_list = result.get("subtasks", [])
+        
+        # 如果指定了上限，只保留前 N 个子任务
+        if request.max_subtasks is not None and request.max_subtasks > 0:
+            subtasks_list = subtasks_list[:request.max_subtasks]
+        
         # 创建子任务
         created_subtasks = []
-        for subtask_data in result.get("subtasks", []):
+        for subtask_data in subtasks_list:
             db_subtask = Subtask(
                 task_id=task_id,
                 subtask_name=subtask_data["name"],
