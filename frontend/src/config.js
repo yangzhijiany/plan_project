@@ -12,9 +12,9 @@ const getApiBaseUrl = () => {
     return 'http://localhost:8000'
   }
   
-  // 生产环境如果没有设置，使用当前域名的 API 路径
-  // 如果前后端部署在同一域名下，可以使用相对路径
-  return window.location.origin
+  // 生产环境：如果前后端部署在同一域名下，使用相对路径（空字符串）
+  // 这样 API 请求会发送到同一个域名
+  return ''
 }
 
 export const API_BASE_URL = getApiBaseUrl()

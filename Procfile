@@ -1,1 +1,1 @@
-web: cd backend && python -c "import sys; sys.path.insert(0, '.'); from database import init_db; init_db()" && uvicorn main:app --host 0.0.0.0 --port $PORT
+web: bash build.sh && cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT

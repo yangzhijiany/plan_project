@@ -1,11 +1,14 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, validator
 from datetime import date, datetime, timedelta
 from typing import List, Optional
 import json
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
 from database import init_db, get_db
@@ -17,6 +20,10 @@ load_dotenv()
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="LLM Task Planner API")
+
+# 获取前端构建目录路径
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend" / "dist"
+FRONTEND_DIR.mkdir(parents=True, exist_ok=True)
 
 # 配置 CORS
 # 从环境变量获取允许的来源，如果没有则使用默认值
@@ -31,6 +38,23 @@ app.add_middleware(
 
 # 初始化数据库
 init_db()
+
+# 挂载静态文件（前端构建产物）
+# 检查前端构建目录是否存在
+frontend_built = FRONTEND_DIR.exists() and any(FRONTEND_DIR.iterdir())
+
+if frontend_built:
+    try:
+        # 挂载静态资源目录（CSS、JS、图片等）
+        assets_dir = FRONTEND_DIR / "assets"
+        if assets_dir.exists():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+        print(f"✅ Frontend static files mounted from {FRONTEND_DIR}")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not mount static files: {e}")
+else:
+    print(f"⚠️  Frontend not built. Frontend directory: {FRONTEND_DIR}")
+    print(f"   Exists: {FRONTEND_DIR.exists()}, Has files: {any(FRONTEND_DIR.iterdir()) if FRONTEND_DIR.exists() else False}")
 
 # 初始化 OpenAI 客户端（延迟初始化，避免启动时就需要 API key）
 def get_openai_client():
@@ -116,11 +140,6 @@ class SubtaskUpdate(BaseModel):
 
 class AllocatedHoursUpdate(BaseModel):
     allocated_hours: float
-
-
-@app.get("/")
-async def root():
-    return {"message": "LLM Task Planner API"}
 
 
 @app.post("/users", response_model=UserResponse)
@@ -838,6 +857,70 @@ async def clear_calendar(user_id: str = None, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"清空日历失败: {str(e)}")
+
+
+# ============================================================================
+# 前端静态文件服务（必须在所有 API 路由之后定义）
+# ============================================================================
+
+# 定义 API 路径列表，这些路径不应该被前端路由处理
+API_PATHS = [
+    "tasks", "calendar", "today", "daily-items", "subtasks", 
+    "users", "user", "docs", "openapi.json", "redoc", "api"
+]
+
+@app.get("/")
+async def serve_index():
+    """提供前端首页"""
+    if frontend_built:
+        index_file = FRONTEND_DIR / "index.html"
+        if index_file.exists():
+            return FileResponse(str(index_file))
+    
+    # 如果前端未构建，返回 API 信息
+    return {
+        "message": "LLM Task Planner API",
+        "frontend_built": frontend_built,
+        "frontend_dir": str(FRONTEND_DIR),
+        "docs": "/docs"
+    }
+
+
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    """处理前端路由和静态文件"""
+    # 检查是否是 API 路径
+    if any(full_path.startswith(path) for path in API_PATHS):
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    # 如果前端未构建，返回错误
+    if not frontend_built:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Frontend not built. Path: {full_path}. Frontend directory: {FRONTEND_DIR}"
+        )
+    
+    # 检查是否是静态文件（CSS、JS、图片等）
+    requested_file = FRONTEND_DIR / full_path
+    
+    # 安全检查：确保请求的文件在 frontend/dist 目录内
+    try:
+        if requested_file.exists() and requested_file.is_file():
+            # 验证路径安全性
+            requested_file.resolve().relative_to(FRONTEND_DIR.resolve())
+            return FileResponse(str(requested_file))
+    except (ValueError, OSError):
+        # 路径不在允许的目录内，继续处理
+        pass
+    
+    # 对于 React Router 路由（如 /create, /calendar 等），返回 index.html
+    index_file = FRONTEND_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    
+    raise HTTPException(status_code=404, detail="Not found")
+
+
 
 
 @app.get("/today")
