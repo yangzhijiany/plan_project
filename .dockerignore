@@ -36,24 +36,19 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Build (不要忽略 dist，我们需要它)
-# frontend/dist/
+# Build
 backend/plans.db
 *.db
 
 # Git
 .git/
 .gitignore
-.gitattributes
 
-# Documentation (保留 README，忽略其他)
+# Documentation (保留 README)
 *.md
 !README.md
 
-# Railway
-.railway/
-
-# Docker (保留 Dockerfile)
+# Docker
 .dockerignore
 
 # 其他
