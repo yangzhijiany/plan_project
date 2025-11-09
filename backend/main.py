@@ -899,6 +899,64 @@ async def clear_calendar(user_id: str = None, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"清空日历失败: {str(e)}")
 
 
+@app.get("/today")
+async def get_today_plans(user_id: str = None, db: Session = Depends(get_db)):
+    """获取今日计划"""
+    if not user_id:
+        raise HTTPException(status_code=400, detail="必须提供 user_id 参数")
+    
+    # 根据 user_id 查找用户
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户未找到")
+    
+    today = date.today()
+    # 只查询该用户的任务
+    items = db.query(DailyTaskItem).join(Task).filter(
+        Task.user_id == user.id,
+        DailyTaskItem.date == today
+    ).order_by(DailyTaskItem.created_at).all()
+    
+    result = []
+    for item in items:
+        task = db.query(Task).filter(Task.id == item.task_id).first()
+        
+        if not task:
+            continue
+        
+        # 长期任务可能没有子任务（subtask_id 为 NULL）
+        if item.subtask_id is None:
+            # 长期任务，显示任务名称
+            result.append(DailyItemResponse(
+                id=item.id,
+                date=item.date.isoformat(),
+                task_id=item.task_id,
+                task_name=task.task_name,
+                subtask_id=0,  # 前端使用 0 表示长期任务
+                subtask_name=task.task_name,  # 长期任务显示任务名称
+                allocated_hours=item.allocated_hours,
+                is_completed=item.is_completed,
+                importance=task.importance
+            ))
+        else:
+            # 普通任务，需要子任务
+            subtask = db.query(Subtask).filter(Subtask.id == item.subtask_id).first()
+            if subtask:
+                result.append(DailyItemResponse(
+                    id=item.id,
+                    date=item.date.isoformat(),
+                    task_id=item.task_id,
+                    task_name=task.task_name,
+                    subtask_id=item.subtask_id,
+                    subtask_name=subtask.subtask_name,
+                    allocated_hours=item.allocated_hours,
+                    is_completed=item.is_completed,
+                    importance=task.importance
+                ))
+    
+    return result
+
+
 # ============================================================================
 # 前端静态文件服务（必须在所有 API 路由之后定义）
 # ============================================================================
@@ -961,64 +1019,6 @@ async def serve_frontend(full_path: str):
     raise HTTPException(status_code=404, detail="Not found")
 
 
-
-
-@app.get("/today")
-async def get_today_plans(user_id: str = None, db: Session = Depends(get_db)):
-    """获取今日计划"""
-    if not user_id:
-        raise HTTPException(status_code=400, detail="必须提供 user_id 参数")
-    
-    # 根据 user_id 查找用户
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="用户未找到")
-    
-    today = date.today()
-    # 只查询该用户的任务
-    items = db.query(DailyTaskItem).join(Task).filter(
-        Task.user_id == user.id,
-        DailyTaskItem.date == today
-    ).order_by(DailyTaskItem.created_at).all()
-    
-    result = []
-    for item in items:
-        task = db.query(Task).filter(Task.id == item.task_id).first()
-        
-        if not task:
-            continue
-        
-        # 长期任务可能没有子任务（subtask_id 为 NULL）
-        if item.subtask_id is None:
-            # 长期任务，显示任务名称
-            result.append(DailyItemResponse(
-                id=item.id,
-                date=item.date.isoformat(),
-                task_id=item.task_id,
-                task_name=task.task_name,
-                subtask_id=0,  # 前端使用 0 表示长期任务
-                subtask_name=task.task_name,  # 长期任务显示任务名称
-                allocated_hours=item.allocated_hours,
-                is_completed=item.is_completed,
-                importance=task.importance
-            ))
-        else:
-            # 普通任务，需要子任务
-            subtask = db.query(Subtask).filter(Subtask.id == item.subtask_id).first()
-            if subtask:
-                result.append(DailyItemResponse(
-                    id=item.id,
-                    date=item.date.isoformat(),
-                    task_id=item.task_id,
-                    task_name=task.task_name,
-                    subtask_id=item.subtask_id,
-                    subtask_name=subtask.subtask_name,
-                    allocated_hours=item.allocated_hours,
-                    is_completed=item.is_completed,
-                    importance=task.importance
-                ))
-    
-    return result
 
 
 @app.put("/daily-items/{item_id}/toggle-complete")
