@@ -38,12 +38,15 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 # 复制后端源代码
 COPY backend/ ./backend/
 
+# 复制启动脚本
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
 # 暴露端口（Railway 会使用环境变量 PORT）
 EXPOSE 8000
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1
 
-# 启动命令（使用 shell 形式以确保环境变量和 cd 命令正常工作）
-# Railway 会自动设置 PORT 环境变量
-CMD cd /app/backend && python3 -c "import sys; sys.path.insert(0, '.'); from database import init_db; init_db()" && python3 -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+# 启动脚本
+CMD ["/start.sh"]
