@@ -1,0 +1,17 @@
+[phases.setup]
+nixPkgs = ["python313", "nodejs-20_x"]
+
+[phases.install]
+cmds = [
+  "pip install -r backend/requirements.txt || pip install -r requirements.txt",
+  "cd frontend && npm install"
+]
+
+[phases.build]
+cmds = [
+  "cd backend && python -c 'from database import init_db; init_db()'",
+  "cd frontend && npm run build"
+]
+
+[start]
+cmd = "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
