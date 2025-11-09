@@ -247,10 +247,10 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"创建用户失败: {str(e)}")
 
 
-@app.get("/users/{user_id}", response_model=UserResponse)
-async def get_user(user_id: str, db: Session = Depends(get_db)):
-    """根据用户ID获取用户信息"""
-    user = db.query(User).filter(User.user_id == user_id).first()
+@app.get("/users/by-nickname/{nickname}", response_model=UserResponse)
+async def get_user_by_nickname(nickname: str, db: Session = Depends(get_db)):
+    """根据昵称获取用户信息"""
+    user = db.query(User).filter(User.nickname == nickname).first()
     if not user:
         raise HTTPException(status_code=404, detail="用户未找到")
     
@@ -262,10 +262,10 @@ async def get_user(user_id: str, db: Session = Depends(get_db)):
     )
 
 
-@app.get("/users/by-nickname/{nickname}", response_model=UserResponse)
-async def get_user_by_nickname(nickname: str, db: Session = Depends(get_db)):
-    """根据昵称获取用户信息"""
-    user = db.query(User).filter(User.nickname == nickname).first()
+@app.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(user_id: str, db: Session = Depends(get_db)):
+    """根据用户ID获取用户信息"""
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="用户未找到")
     
