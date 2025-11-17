@@ -120,7 +120,7 @@ def get_openai_client():
     if not api_key:
         raise HTTPException(
             status_code=500, 
-            detail="OPENAI_API_KEY 未设置。请在生产环境的环境变量中配置 OPENAI_API_KEY"
+            detail="OPENAI_API_KEY is not set. Please configure OPENAI_API_KEY in the production environment variables"
         )
     return OpenAI(api_key=api_key)
 
@@ -188,7 +188,7 @@ class GenerateSubtasksRequest(BaseModel):
     @validator('max_subtasks')
     def validate_max_subtasks(cls, v):
         if v is not None and v <= 0:
-            raise ValueError('子任务数量上限必须大于 0')
+            raise ValueError('Max subtasks must be greater than 0')
         return v
 
 
@@ -209,7 +209,7 @@ class SubtaskUpdate(BaseModel):
         @validator('estimated_hours')
         def validate_hours(cls, v):
             if v is not None and v < 0:
-                raise ValueError('预计时间不能为负数')
+                raise ValueError('Estimated hours cannot be negative')
             return v
 
 
@@ -261,7 +261,7 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
         )
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"创建用户失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
 
 
 @app.get("/users/by-nickname/{nickname}", response_model=UserResponse)
@@ -269,7 +269,7 @@ async def get_user_by_nickname(nickname: str, db: Session = Depends(get_db)):
     """根据昵称获取用户信息"""
     user = db.query(User).filter(User.nickname == nickname).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户未找到")
+        raise HTTPException(status_code=404, detail="User not found")
     
     return UserResponse(
         id=user.id,
@@ -284,7 +284,7 @@ async def get_user(user_id: str, db: Session = Depends(get_db)):
     """根据用户ID获取用户信息"""
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户未找到")
+        raise HTTPException(status_code=404, detail="User not found")
     
     return UserResponse(
         id=user.id,
@@ -301,7 +301,7 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
         # 根据 user_id 查找用户
         user = db.query(User).filter(User.user_id == task.user_id).first()
         if not user:
-            raise HTTPException(status_code=404, detail="用户未找到")
+            raise HTTPException(status_code=404, detail="User not found")
         
         # 解析开始日期
         start_date_obj = None
@@ -313,11 +313,11 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
         if task.deadline and not task.is_long_term:
             deadline_date = datetime.strptime(task.deadline, "%Y-%m-%d").date()
             if deadline_date < get_today_cst():
-                raise HTTPException(status_code=400, detail="截止日期不能早于今天")
+                raise HTTPException(status_code=400, detail="Deadline cannot be earlier than today")
             
             # 如果指定了开始日期，验证开始日期不晚于截止日期
             if start_date_obj and start_date_obj > deadline_date:
-                raise HTTPException(status_code=400, detail="开始日期不能晚于截止日期")
+                raise HTTPException(status_code=400, detail="Start date cannot be later than deadline")
         
         db_task = Task(
             user_id=user.id,
@@ -344,9 +344,9 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
             created_at=db_task.created_at.isoformat()
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"日期格式错误: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Date format error: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"创建任务失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create task: {str(e)}")
 
 
 @app.get("/tasks", response_model=List[TaskResponse])
@@ -358,7 +358,7 @@ async def get_tasks(user_id: str = None, db: Session = Depends(get_db)):
         # 根据 user_id 查找用户
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
-            raise HTTPException(status_code=404, detail="用户未找到")
+            raise HTTPException(status_code=404, detail="User not found")
         query = query.filter(Task.user_id == user.id)
     
     tasks = query.order_by(Task.created_at.desc()).all()
@@ -393,7 +393,7 @@ async def get_task(task_id: int, user_id: str = None, db: Session = Depends(get_
     """获取任务详情"""
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
-        raise HTTPException(status_code=404, detail="任务未找到")
+        raise HTTPException(status_code=404, detail="Task not found")
     
     # 如果提供了 user_id，验证任务是否属于该用户
     if user_id:
@@ -432,21 +432,21 @@ async def create_custom_task_item(request: CustomTaskItemCreate, db: Session = D
         # 根据 user_id 查找用户
         user = db.query(User).filter(User.user_id == request.user_id).first()
         if not user:
-            raise HTTPException(status_code=404, detail="用户未找到")
+            raise HTTPException(status_code=404, detail="User not found")
         
         # 解析日期
         try:
             task_date = datetime.strptime(request.date, "%Y-%m-%d").date()
         except ValueError:
-            raise HTTPException(status_code=400, detail="日期格式错误，请使用 YYYY-MM-DD 格式")
+            raise HTTPException(status_code=400, detail="Date format error, please use YYYY-MM-DD format")
         
         # 验证时间
         if request.allocated_hours <= 0:
-            raise HTTPException(status_code=400, detail="分配时间必须大于0")
+            raise HTTPException(status_code=400, detail="Allocated time must be greater than 0")
         
         # 验证重要性
         if request.importance not in ["low", "medium", "high"]:
-            raise HTTPException(status_code=400, detail="重要性必须是 low、medium 或 high")
+            raise HTTPException(status_code=400, detail="Importance must be low, medium, or high")
         
         # 检查是否已存在同名任务（可选：可以复用现有任务，或创建新任务）
         # 这里我们创建新任务，每次都是独立的
@@ -491,10 +491,10 @@ async def create_custom_task_item(request: CustomTaskItemCreate, db: Session = D
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"日期格式错误: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Date format error: {str(e)}")
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"创建自定义任务项失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create custom task item: {str(e)}")
 
 
 @app.post("/tasks/{task_id}/generate-subtasks")
@@ -503,42 +503,42 @@ async def generate_subtasks(task_id: int, request: GenerateSubtasksRequest, db: 
     try:
         task = db.query(Task).filter(Task.id == task_id).first()
         if not task:
-            raise HTTPException(status_code=404, detail="任务未找到")
+            raise HTTPException(status_code=404, detail="Task not found")
         
         # 构建提示词
         today = get_today_cst()
-        deadline_str = request.deadline if request.deadline else "无截止日期（长期任务）"
+        deadline_str = request.deadline if request.deadline else "No deadline (long-term task)"
         
-        # 构建子任务数量限制的说明
+        # Build note about subtask quantity limit
         max_subtasks_note = ""
         if request.max_subtasks is not None and request.max_subtasks > 0:
-            max_subtasks_note = f"\n重要：最多只生成 {request.max_subtasks} 个子任务。如果任务很简单，可以只生成 1 个子任务，甚至直接将整个任务作为一个子任务。"
+            max_subtasks_note = f"\nImportant: Generate at most {request.max_subtasks} subtasks. If the task is simple, you can generate only 1 subtask, or even treat the entire task as a single subtask."
         
-        prompt = f"""作为一个专业的学习和工作计划助手，请根据以下任务描述，生成详细的子任务列表。
+        prompt = f"""As a professional learning and work planning assistant, please generate a detailed list of subtasks based on the following task description.
 
-任务名称: {task.task_name}
-任务描述: {request.description}
-截止日期: {deadline_str}
-是否为长期任务: {'是' if request.is_long_term else '否'}{max_subtasks_note}
+Task Name: {task.task_name}
+Task Description: {request.description}
+Deadline: {deadline_str}
+Is Long-term Task: {'Yes' if request.is_long_term else 'No'}{max_subtasks_note}
 
-要求:
-1. 仔细分析任务描述，识别所有需要完成的子任务
-2. 将任务描述拆分成具体的、可执行的子任务
-3. 为每个子任务估算完成所需的时间（单位：小时），要合理估算
-4. 子任务应该具体、明确，便于执行
-5. 如果任务较大，可以拆分成多个子任务
-6. 如果指定了子任务数量上限，请严格遵守上限，不要超过
-7. 如果任务很简单或用户明确表示只需要少量子任务，请减少子任务数量，甚至可以将整个任务作为一个子任务
-8. 返回 JSON 格式，格式如下:
+Requirements:
+1. Carefully analyze the task description and identify all subtasks that need to be completed
+2. Break down the task description into specific, executable subtasks
+3. Estimate the time required to complete each subtask (in hours), with reasonable estimates
+4. Subtasks should be specific and clear, easy to execute
+5. If the task is large, it can be split into multiple subtasks
+6. If a maximum number of subtasks is specified, strictly adhere to the limit and do not exceed it
+7. If the task is very simple or the user explicitly indicates they only need a few subtasks, reduce the number of subtasks, or even treat the entire task as a single subtask
+8. Return JSON format as follows:
 {{
   "subtasks": [
-    {{"name": "子任务1", "estimated_hours": 2.0}},
-    {{"name": "子任务2", "estimated_hours": 3.5}},
-    {{"name": "子任务3", "estimated_hours": 1.0}}
+    {{"name": "Subtask 1", "estimated_hours": 2.0}},
+    {{"name": "Subtask 2", "estimated_hours": 3.5}},
+    {{"name": "Subtask 3", "estimated_hours": 1.0}}
   ]
 }}
 
-只返回 JSON 对象，不要其他解释文字。确保 estimated_hours 是数字类型。"""
+Return only the JSON object, no other explanatory text. Ensure estimated_hours is a numeric type."""
 
         # 调用 OpenAI API
         openai_client = get_openai_client()
@@ -546,13 +546,13 @@ async def generate_subtasks(task_id: int, request: GenerateSubtasksRequest, db: 
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "你是一个专业的学习和工作计划助手。总是返回有效的 JSON 格式数据。"},
+                    {"role": "system", "content": "You are a professional learning and work planning assistant. Always return valid JSON format data."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
             )
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"OpenAI API 调用失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"OpenAI API call failed: {str(e)}")
         
         # 解析响应
         content = response.choices[0].message.content.strip()
@@ -596,9 +596,9 @@ async def generate_subtasks(task_id: int, request: GenerateSubtasksRequest, db: 
         return {"subtasks": created_subtasks}
         
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"解析 LLM 响应失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse LLM response: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成子任务失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate subtasks: {str(e)}")
 
 
 @app.post("/tasks/{task_id}/generate-plan")
@@ -607,13 +607,13 @@ async def generate_plan(task_id: int, user_id: str = None, db: Session = Depends
     try:
         task = db.query(Task).filter(Task.id == task_id).first()
         if not task:
-            raise HTTPException(status_code=404, detail="任务未找到")
+            raise HTTPException(status_code=404, detail="Task not found")
         
         # 如果提供了 user_id，验证任务是否属于该用户
         if user_id:
             user = db.query(User).filter(User.user_id == user_id).first()
             if not user or task.user_id != user.id:
-                raise HTTPException(status_code=403, detail="无权访问此任务")
+                raise HTTPException(status_code=403, detail="No access to this task")
         
         # 长期任务不需要子任务，直接生成计划
         if task.is_long_term:
@@ -652,15 +652,15 @@ async def generate_plan(task_id: int, user_id: str = None, db: Session = Depends
                 current_date += timedelta(days=1)
             
             db.commit()
-            return {"message": "长期任务计划生成成功", "items": created_items}
+            return {"message": "Long-term task plan generated successfully", "items": created_items}
         
         # 非长期任务需要子任务
         if not task.subtasks:
-            raise HTTPException(status_code=400, detail="任务还没有子任务，请先生成子任务")
+            raise HTTPException(status_code=400, detail="Task has no subtasks yet, please generate subtasks first")
         
         # 非长期任务，需要设置截止日期
         if not task.deadline:
-            raise HTTPException(status_code=400, detail="非长期任务必须设置截止日期")
+            raise HTTPException(status_code=400, detail="Non-long-term tasks must have a deadline")
         
         # 如果指定了开始日期，使用开始日期；否则使用今天
         start_date = task.start_date if task.start_date else get_today_cst()
@@ -672,53 +672,53 @@ async def generate_plan(task_id: int, user_id: str = None, db: Session = Depends
         
         days = (end_date - start_date).days + 1
         if days <= 0:
-            raise HTTPException(status_code=400, detail="截止日期不能早于开始日期")
+            raise HTTPException(status_code=400, detail="Deadline cannot be earlier than start date")
         
-        # 构建提示词
+        # Build prompt
         subtasks_info = [
-            f"{st.subtask_name} (预计 {st.estimated_hours} 小时)"
+            f"{st.subtask_name} (estimated {st.estimated_hours} hours)"
             for st in task.subtasks
         ]
         
-        prompt = f"""作为一个专业的学习和工作计划助手，请为以下任务生成一个详细的每日计划。
+        prompt = f"""As a professional learning and work planning assistant, please generate a detailed daily plan for the following task.
 
-任务名称: {task.task_name}
-任务描述: {task.description}
-任务重要性: {task.importance}
-是否为长期任务: {'是' if task.is_long_term else '否'}
-{'截止日期: ' + task.deadline.isoformat() if task.deadline else ''}
+Task Name: {task.task_name}
+Task Description: {task.description}
+Task Importance: {task.importance}
+Is Long-term Task: {'Yes' if task.is_long_term else 'No'}
+{'Deadline: ' + task.deadline.isoformat() if task.deadline else ''}
 
-子任务列表（按顺序编号）:
+Subtask List (numbered in order):
 {chr(10).join([f"{i+1}. {info}" for i, info in enumerate(subtasks_info)])}
 
-要求:
-1. 从 {start_date.isoformat()} 开始，到 {'未来30天' if task.is_long_term else end_date.isoformat()} 为止，生成每日计划
-2. **重要：每天可以分配多个子任务**，比如同一天可以复习PPT和MP，或者复习PPT和WA
-3. 合理分配每个子任务到不同的日期，确保在截止日期前完成所有子任务
-4. 如果任务较多或时间较长，可以将一个子任务拆分到多天完成
-5. 确保每天的工作量均衡（建议每天2-4小时），根据重要性调整任务分配
-6. 长期任务应该每天分配少量时间（1-2小时），保持持续性
-7. 分配的 hours 应该合理，不要超过子任务的 estimated_hours
-8. 尽量让每天的多个子任务搭配合理，比如相关的任务可以放在同一天
-9. 返回 JSON 格式，格式如下:
+Requirements:
+1. Generate a daily plan from {start_date.isoformat()} to {'the next 30 days' if task.is_long_term else end_date.isoformat()}
+2. **Important: Multiple subtasks can be allocated per day**, for example, you can review PPT and MP on the same day, or review PPT and WA on the same day
+3. Reasonably allocate each subtask to different dates, ensuring all subtasks are completed before the deadline
+4. If there are many tasks or the time is long, a subtask can be split across multiple days
+5. Ensure daily workload is balanced (recommended 2-4 hours per day), adjust task allocation based on importance
+6. Long-term tasks should allocate a small amount of time daily (1-2 hours) to maintain continuity
+7. Allocated hours should be reasonable and not exceed the subtask's estimated_hours
+8. Try to make multiple subtasks per day work well together, for example, related tasks can be placed on the same day
+9. Return JSON format as follows:
 {{
   "plan": [
-    {{"date": "YYYY-MM-DD", "subtask_id": 1, "allocated_hours": 2.0, "subtask_name": "子任务1"}},
-    {{"date": "YYYY-MM-DD", "subtask_id": 2, "allocated_hours": 1.5, "subtask_name": "子任务2"}},
-    {{"date": "YYYY-MM-DD", "subtask_id": 1, "allocated_hours": 1.0, "subtask_name": "子任务1"}},
-    {{"date": "YYYY-MM-DD", "subtask_id": 3, "allocated_hours": 1.5, "subtask_name": "子任务3"}}
+    {{"date": "YYYY-MM-DD", "subtask_id": 1, "allocated_hours": 2.0, "subtask_name": "Subtask 1"}},
+    {{"date": "YYYY-MM-DD", "subtask_id": 2, "allocated_hours": 1.5, "subtask_name": "Subtask 2"}},
+    {{"date": "YYYY-MM-DD", "subtask_id": 1, "allocated_hours": 1.0, "subtask_name": "Subtask 1"}},
+    {{"date": "YYYY-MM-DD", "subtask_id": 3, "allocated_hours": 1.5, "subtask_name": "Subtask 3"}}
   ]
 }}
 
-注意：
-- **每天可以有多个子任务**，比如同一天可以有 subtask_id 1 和 subtask_id 2
-- subtask_id 对应子任务的顺序编号（从1开始）
-- subtask_name 是子任务的名称（用于验证）
-- allocated_hours 是分配的时间（小时），每天的总时间建议在2-4小时
-- 日期格式必须是 YYYY-MM-DD
-- 确保所有子任务都被分配到计划中
+Notes:
+- **Multiple subtasks can be allocated per day**, for example, subtask_id 1 and subtask_id 2 can be on the same day
+- subtask_id corresponds to the subtask's sequential number (starting from 1)
+- subtask_name is the name of the subtask (for verification)
+- allocated_hours is the allocated time (in hours), recommended total time per day is 2-4 hours
+- Date format must be YYYY-MM-DD
+- Ensure all subtasks are allocated in the plan
 
-只返回 JSON 对象，不要其他解释文字。"""
+Return only the JSON object, no other explanatory text."""
 
         # 调用 OpenAI API
         openai_client = get_openai_client()
@@ -726,13 +726,13 @@ async def generate_plan(task_id: int, user_id: str = None, db: Session = Depends
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "你是一个专业的学习和工作计划助手。总是返回有效的 JSON 格式数据。"},
+                    {"role": "system", "content": "You are a professional learning and work planning assistant. Always return valid JSON format data."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
             )
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"OpenAI API 调用失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"OpenAI API call failed: {str(e)}")
         
         # 解析响应
         content = response.choices[0].message.content.strip()
@@ -796,12 +796,12 @@ async def generate_plan(task_id: int, user_id: str = None, db: Session = Depends
         
         db.commit()
         
-        return {"message": "计划生成成功", "items": created_items}
+        return {"message": "Plan generated successfully", "items": created_items}
         
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"解析 LLM 响应失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse LLM response: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成计划失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate plan: {str(e)}")
 
 
 @app.put("/subtasks/{subtask_id}")
@@ -810,7 +810,7 @@ async def update_subtask(subtask_id: int, update: SubtaskUpdate, db: Session = D
     try:
         subtask = db.query(Subtask).filter(Subtask.id == subtask_id).first()
         if not subtask:
-            raise HTTPException(status_code=404, detail="子任务未找到")
+            raise HTTPException(status_code=404, detail="Subtask not found")
         
         # 更新名称（如果提供）
         if update.subtask_name is not None:
@@ -840,7 +840,7 @@ async def update_subtask(subtask_id: int, update: SubtaskUpdate, db: Session = D
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"更新子任务失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update subtask: {str(e)}")
 
 
 @app.get("/calendar")
@@ -861,12 +861,12 @@ async def get_calendar(
     """
     try:
         if not user_id:
-            raise HTTPException(status_code=400, detail="必须提供 user_id 参数")
+            raise HTTPException(status_code=400, detail="user_id parameter is required")
         
         # 根据 user_id 查找用户
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
-            raise HTTPException(status_code=404, detail="用户未找到")
+            raise HTTPException(status_code=404, detail="User not found")
         
         if start_date:
             start = datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -939,7 +939,7 @@ async def get_calendar(
         
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"日期格式错误: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Date format error: {str(e)}")
 
 
 @app.put("/daily-items/{item_id}")
@@ -947,7 +947,7 @@ async def update_daily_item(item_id: int, update: AllocatedHoursUpdate, db: Sess
     """更新每日任务项的分配时间"""
     item = db.query(DailyTaskItem).filter(DailyTaskItem.id == item_id).first()
     if not item:
-        raise HTTPException(status_code=404, detail="任务项未找到")
+        raise HTTPException(status_code=404, detail="Task item not found")
     
     item.allocated_hours = update.allocated_hours
     db.commit()
@@ -993,7 +993,7 @@ async def delete_daily_item(
     """
     item = db.query(DailyTaskItem).filter(DailyTaskItem.id == item_id).first()
     if not item:
-        raise HTTPException(status_code=404, detail="任务项未找到")
+        raise HTTPException(status_code=404, detail="Task item not found")
     
     # 如果提供了 user_id，验证任务是否属于该用户
     if user_id:
@@ -1008,7 +1008,7 @@ async def delete_daily_item(
         # 获取任务信息
         task = db.query(Task).filter(Task.id == item.task_id).first()
         if not task:
-            raise HTTPException(status_code=404, detail="任务未找到")
+            raise HTTPException(status_code=404, detail="Task not found")
         
         # 删除该任务的所有未来日期项（从当前任务项的日期开始，包括当前项）
         # 如果是长期任务（subtask_id 为 None），删除所有未来的长期任务项
@@ -1049,7 +1049,7 @@ async def delete_task(task_id: int, user_id: str = None, db: Session = Depends(g
     """删除任务（会级联删除所有子任务和计划项）"""
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
-        raise HTTPException(status_code=404, detail="任务未找到")
+        raise HTTPException(status_code=404, detail="Task not found")
     
     # 如果提供了 user_id，验证任务是否属于该用户
     if user_id:
@@ -1073,12 +1073,12 @@ async def clear_calendar(user_id: str = None, db: Session = Depends(get_db)):
     """清空指定用户的日历计划项"""
     try:
         if not user_id:
-            raise HTTPException(status_code=400, detail="必须提供 user_id 参数")
+            raise HTTPException(status_code=400, detail="user_id parameter is required")
         
         # 根据 user_id 查找用户
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
-            raise HTTPException(status_code=404, detail="用户未找到")
+            raise HTTPException(status_code=404, detail="User not found")
         
         # 先获取该用户的所有任务ID
         user_tasks = db.query(Task.id).filter(Task.user_id == user.id).all()
@@ -1093,10 +1093,10 @@ async def clear_calendar(user_id: str = None, db: Session = Depends(get_db)):
         ).delete(synchronize_session=False)
         
         db.commit()
-        return {"message": f"已清空 {deleted_count} 个计划项"}
+        return {"message": f"Cleared {deleted_count} plan items"}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"清空日历失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear calendar: {str(e)}")
 
 
 @app.get("/today")
@@ -1118,7 +1118,7 @@ async def get_today_plans(
     # 根据 user_id 查找用户
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户未找到")
+        raise HTTPException(status_code=404, detail="User not found")
     
     # 根据时区偏移计算"今天"，如果未提供则使用默认值（UTC+8）
     if timezone_offset is not None:
@@ -1251,7 +1251,7 @@ async def toggle_item_complete(item_id: int, user_id: str = None, db: Session = 
     """切换任务项的完成状态"""
     item = db.query(DailyTaskItem).filter(DailyTaskItem.id == item_id).first()
     if not item:
-        raise HTTPException(status_code=404, detail="任务项未找到")
+        raise HTTPException(status_code=404, detail="Task item not found")
     
     # 如果提供了 user_id，验证任务是否属于该用户
     if user_id:

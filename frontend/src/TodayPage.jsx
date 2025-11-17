@@ -19,15 +19,15 @@ function TodayPage() {
 
   const fetchTodayPlans = async () => {
     if (!user) {
-      setError('请先创建或选择用户')
+      setError('Please create or select a user first')
       return
     }
 
     try {
       setLoading(true)
-      // 获取用户时区偏移（小时）
-      // getTimezoneOffset() 返回的是分钟数，而且是相反的（UTC+8 返回 -480）
-      // 所以需要除以 -60 来转换为小时数
+      // Get user timezone offset (hours)
+      // getTimezoneOffset() returns minutes and is inverted (UTC+8 returns -480)
+      // So we need to divide by -60 to convert to hours
       const timezoneOffset = -new Date().getTimezoneOffset() / 60
       const response = await axios.get(
         `${API_BASE_URL}/today?user_id=${user.user_id}&timezone_offset=${timezoneOffset}`
@@ -35,7 +35,7 @@ function TodayPage() {
       setPlans(response.data)
       setError('')
     } catch (err) {
-      setError('加载今日计划失败，请检查后端服务是否运行')
+      setError('Failed to load today\'s plans. Please check if the backend service is running')
       console.error('Error:', err)
     } finally {
       setLoading(false)
@@ -48,7 +48,7 @@ function TodayPage() {
     try {
       const response = await axios.put(`${API_BASE_URL}/daily-items/${itemId}/toggle-complete?user_id=${user.user_id}`)
       
-      // 更新本地状态
+      // Update local state
       setPlans(plans.map(plan => 
         plan.id === itemId 
           ? { ...plan, is_completed: response.data.is_completed }
@@ -56,7 +56,7 @@ function TodayPage() {
       ))
       setError('')
     } catch (err) {
-      setError(err.response?.data?.detail || '更新完成状态失败')
+      setError(err.response?.data?.detail || 'Failed to update completion status')
       console.error('Error:', err)
     } finally {
       setToggling(null)
@@ -74,11 +74,11 @@ function TodayPage() {
 
   const getImportanceText = (importance) => {
     const texts = {
-      'high': '高',
-      'medium': '中',
-      'low': '低',
+      'high': 'High',
+      'medium': 'Medium',
+      'low': 'Low',
     }
-    return texts[importance] || '未知'
+    return texts[importance] || 'Unknown'
   }
 
   const completedCount = plans.filter(p => p.is_completed).length
@@ -91,7 +91,7 @@ function TodayPage() {
         <div className="max-w-4xl mx-auto">
           <div className="bg-white shadow-2xl rounded-3xl p-12 text-center border border-gray-100">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 text-lg">加载中...</p>
+            <p className="text-gray-600 text-lg">Loading...</p>
           </div>
         </div>
       </div>
@@ -104,9 +104,9 @@ function TodayPage() {
         <div className="bg-white shadow-2xl rounded-3xl p-8 lg:p-10 border border-gray-100">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
             <div>
-              <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">今日计划</h2>
+              <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Today's Plan</h2>
               <p className="text-sm text-gray-600 mt-2 font-medium">
-                {new Date().toLocaleDateString('zh-CN', { 
+                {new Date().toLocaleDateString('en-US', { 
                   year: 'numeric', 
                   month: 'long', 
                   day: 'numeric',
@@ -119,22 +119,22 @@ function TodayPage() {
                 onClick={fetchTodayPlans}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-2xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
               >
-                刷新
+                Refresh
               </button>
               <Link
                 to="/create"
                 className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-3 rounded-2xl hover:from-gray-700 hover:to-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
               >
-                创建任务
+                Create Task
               </Link>
             </div>
           </div>
 
-          {/* 进度统计 */}
+          {/* Progress Statistics */}
           {totalCount > 0 && (
             <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-3xl shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-base font-bold text-blue-900">完成进度</span>
+                <span className="text-base font-bold text-blue-900">Completion Progress</span>
                 <span className="text-base font-bold text-blue-900 bg-white px-4 py-1 rounded-full shadow-sm">{completedCount} / {totalCount}</span>
               </div>
               <div className="w-full bg-blue-200 rounded-full h-4 shadow-inner">
@@ -143,7 +143,7 @@ function TodayPage() {
                   style={{ width: `${completionRate}%` }}
                 ></div>
               </div>
-              <p className="text-sm text-blue-700 mt-3 font-semibold">完成率: {completionRate}%</p>
+              <p className="text-sm text-blue-700 mt-3 font-semibold">Completion Rate: {completionRate}%</p>
             </div>
           )}
 
@@ -156,12 +156,12 @@ function TodayPage() {
           {plans.length === 0 && !error && (
             <div className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-3xl text-center shadow-sm">
               <p className="text-sm text-blue-800 font-medium">
-                今天还没有计划。前往 <Link to="/create" className="underline font-semibold hover:text-blue-900">创建任务页面</Link> 创建您的第一个任务！
+                No plans for today. Go to <Link to="/create" className="underline font-semibold hover:text-blue-900">Create Task</Link> to create your first task!
               </p>
             </div>
           )}
 
-          {/* 任务列表 */}
+          {/* Task List */}
           {plans.length > 0 && (
             <div className="space-y-4">
               {plans.map((plan) => (
@@ -184,14 +184,14 @@ function TodayPage() {
                           plan.importance === 'medium' ? 'bg-amber-100 text-amber-800' :
                           'bg-green-100 text-green-800'
                         }`}>
-                          {getImportanceText(plan.importance)}优先级
+                          {getImportanceText(plan.importance)} Priority
                         </span>
                       </div>
                       {plan.subtask_id !== 0 && (
                         <p className="text-sm text-gray-600 mb-3 font-semibold">{plan.subtask_name}</p>
                       )}
                       <div className="flex items-center space-x-3 text-xs text-gray-500 font-medium">
-                        <span className="bg-white px-3 py-1 rounded-full shadow-sm">⏱️ {plan.allocated_hours} 小时</span>
+                        <span className="bg-white px-3 py-1 rounded-full shadow-sm">⏱️ {plan.allocated_hours} hours</span>
                         <span className="bg-white px-3 py-1 rounded-full shadow-sm">📅 {plan.date}</span>
                       </div>
                     </div>
@@ -231,7 +231,7 @@ function TodayPage() {
             </div>
           )}
 
-          {/* 已完成任务统计 */}
+          {/* Completed Tasks Statistics */}
           {completedCount > 0 && (
             <div className="mt-8 p-6 bg-gradient-to-r from-green-50 via-emerald-50 to-green-50 border-2 border-green-200 rounded-3xl shadow-lg">
               <div className="flex items-center space-x-3">
@@ -244,10 +244,10 @@ function TodayPage() {
                 </div>
                 <div className="flex-1">
                   <p className="text-base font-bold text-green-800">
-                    🎉 恭喜！您今天已经完成了 {completedCount} 个任务！
+                    🎉 Congratulations! You've completed {completedCount} task{completedCount > 1 ? 's' : ''} today!
                   </p>
                   <p className="text-sm text-green-600 mt-1">
-                    继续保持，您做得很好！
+                    Keep it up, you're doing great!
                   </p>
                 </div>
               </div>

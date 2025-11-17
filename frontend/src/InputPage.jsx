@@ -28,7 +28,7 @@ function InputPage() {
     setSubtasks([])
 
     if (!user) {
-      setError('请先创建或选择用户')
+      setError('Please create or select a user first')
       return
     }
 
@@ -46,7 +46,7 @@ function InputPage() {
       const newTask = response.data
       setTask(newTask)
       
-      // 如果不是长期任务，自动生成子任务
+      // If not a long-term task, automatically generate subtasks
       if (!isLongTerm) {
         setLoading(true)
         try {
@@ -55,7 +55,7 @@ function InputPage() {
             deadline: deadline,
             is_long_term: false
           }
-          // 如果指定了子任务数量上限，添加到请求中
+          // If max subtasks is specified, add it to the request
           if (maxSubtasks && maxSubtasks.trim() !== '') {
             const maxSubtasksNum = parseInt(maxSubtasks, 10)
             if (!isNaN(maxSubtasksNum) && maxSubtasksNum > 0) {
@@ -65,31 +65,31 @@ function InputPage() {
           
           const subtasksResponse = await axios.post(`${API_BASE_URL}/tasks/${newTask.id}/generate-subtasks?user_id=${user.user_id}`, requestBody)
           
-          // 更新任务信息以包含新创建的子任务
+          // Update task info to include newly created subtasks
           const taskResponse = await axios.get(`${API_BASE_URL}/tasks/${newTask.id}?user_id=${user.user_id}`)
           setTask(taskResponse.data)
           setSubtasks(taskResponse.data.subtasks)
         } catch (err) {
-          setError(err.response?.data?.detail || '生成子任务失败')
+          setError(err.response?.data?.detail || 'Failed to generate subtasks')
           console.error('Error:', err)
         } finally {
           setLoading(false)
         }
       } else {
-        // 长期任务直接生成计划
+        // Long-term tasks directly generate plan
         setLoading(true)
         try {
           await axios.post(`${API_BASE_URL}/tasks/${newTask.id}/generate-plan?user_id=${user.user_id}`)
           setError('')
         } catch (err) {
-          setError(err.response?.data?.detail || '生成计划失败')
+          setError(err.response?.data?.detail || 'Failed to generate plan')
           console.error('Error:', err)
         } finally {
           setLoading(false)
         }
       }
     } catch (err) {
-      setError(err.response?.data?.detail || '创建任务失败，请检查网络连接和 API 配置')
+      setError(err.response?.data?.detail || 'Failed to create task. Please check network connection and API configuration')
       console.error('Error:', err)
       setLoading(false)
     }
@@ -107,7 +107,7 @@ function InputPage() {
         deadline: isLongTerm ? null : deadline,
         is_long_term: isLongTerm
       }
-      // 如果指定了子任务数量上限，添加到请求中
+      // If max subtasks is specified, add it to the request
       if (maxSubtasks && maxSubtasks.trim() !== '') {
         const maxSubtasksNum = parseInt(maxSubtasks, 10)
         if (!isNaN(maxSubtasksNum) && maxSubtasksNum > 0) {
@@ -117,12 +117,12 @@ function InputPage() {
       
       const response = await axios.post(`${API_BASE_URL}/tasks/${task.id}/generate-subtasks?user_id=${user.user_id}`, requestBody)
 
-      // 更新任务信息以包含新创建的子任务
+      // Update task info to include newly created subtasks
       const taskResponse = await axios.get(`${API_BASE_URL}/tasks/${task.id}?user_id=${user.user_id}`)
       setTask(taskResponse.data)
       setSubtasks(taskResponse.data.subtasks)
     } catch (err) {
-      setError(err.response?.data?.detail || '生成子任务失败')
+      setError(err.response?.data?.detail || 'Failed to generate subtasks')
       console.error('Error:', err)
     } finally {
       setGeneratingSubtasks(false)
@@ -131,7 +131,7 @@ function InputPage() {
 
   const handleUpdateSubtask = async (subtaskId, updates) => {
     try {
-      // 构建更新对象，只包含提供的字段
+      // Build update object, only include provided fields
       const updateData = {}
       if (updates.subtask_name !== undefined) {
         updateData.subtask_name = updates.subtask_name
@@ -145,8 +145,8 @@ function InputPage() {
           : parseFloat(updates.estimated_hours)
         
         if (isNaN(hours) || hours < 0) {
-          setError('请输入有效的时间（大于等于0的数字）')
-          // 恢复原值
+          setError('Please enter a valid time (a number greater than or equal to 0)')
+          // Restore original value
           const taskResponse = await axios.get(`${API_BASE_URL}/tasks/${task.id}`)
           setTask(taskResponse.data)
           return
@@ -160,16 +160,16 @@ function InputPage() {
         }
       })
       
-      // 更新任务信息（从服务器获取最新数据）
+      // Update task info (get latest data from server)
       const taskResponse = await axios.get(`${API_BASE_URL}/tasks/${task.id}`)
       setTask(taskResponse.data)
       setSubtasks(taskResponse.data.subtasks)
-      setError('') // 清除错误
+      setError('') // Clear error
     } catch (err) {
-      console.error('更新子任务错误:', err.response?.data || err)
+      console.error('Error updating subtask:', err.response?.data || err)
       
-      // 尝试解析错误信息
-      let errorMsg = '更新子任务失败'
+      // Try to parse error message
+      let errorMsg = 'Failed to update subtask'
       if (err.response?.data) {
         if (typeof err.response.data.detail === 'string') {
           errorMsg = err.response.data.detail
@@ -182,18 +182,18 @@ function InputPage() {
       
       setError(errorMsg)
       
-      // 恢复原值
+      // Restore original value
       try {
         const taskResponse = await axios.get(`${API_BASE_URL}/tasks/${task.id}`)
         setTask(taskResponse.data)
         setSubtasks(taskResponse.data.subtasks)
       } catch (fetchErr) {
-        console.error('获取任务失败:', fetchErr)
+        console.error('Failed to fetch task:', fetchErr)
       }
     }
   }
   
-  // 向后兼容：保留原有的更新时间的函数
+  // Backward compatibility: keep the original function for updating time
   const handleUpdateSubtaskTime = async (subtaskId, newHours) => {
     await handleUpdateSubtask(subtaskId, { estimated_hours: newHours })
   }
@@ -207,9 +207,9 @@ function InputPage() {
     try {
       await axios.post(`${API_BASE_URL}/tasks/${task.id}/generate-plan?user_id=${user.user_id}`)
       setError('')
-      alert('计划生成成功！前往日历视图查看。')
+      alert('Plan generated successfully! Go to calendar view to see it.')
     } catch (err) {
-      setError(err.response?.data?.detail || '生成计划失败')
+      setError(err.response?.data?.detail || 'Failed to generate plan')
       console.error('Error:', err)
     } finally {
       setGeneratingPlan(false)
@@ -221,14 +221,14 @@ function InputPage() {
       <div className="max-w-3xl mx-auto">
         <div className="bg-white shadow-2xl rounded-3xl p-8 lg:p-10 border border-gray-100">
           <div className="mb-8">
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">创建新任务</h2>
-            <p className="text-gray-600 font-medium">使用自然语言描述您的任务，AI 将自动生成计划</p>
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">Create New Task</h2>
+            <p className="text-gray-600 font-medium">Describe your task in natural language, and AI will automatically generate a plan</p>
           </div>
           
           <form onSubmit={handleCreateTask} className="space-y-6">
             <div>
               <label htmlFor="taskName" className="block text-sm font-semibold text-gray-700 mb-3">
-                任务名称
+                Task Name
               </label>
               <input
                 type="text"
@@ -237,13 +237,13 @@ function InputPage() {
                 onChange={(e) => setTaskName(e.target.value)}
                 required
                 className="w-full px-5 py-3 border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 text-gray-900 placeholder-gray-400"
-                placeholder="例如：CS421 Midterm3"
+                placeholder="e.g., CS421 Midterm3"
               />
             </div>
 
             <div>
               <label htmlFor="description" className="block text-sm font-semibold text-gray-700 mb-3">
-                任务描述（自然语言）
+                Task Description (Natural Language)
               </label>
               <textarea
                 id="description"
@@ -252,13 +252,13 @@ function InputPage() {
                 required
                 rows={4}
                 className="w-full px-5 py-3 border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 text-gray-900 placeholder-gray-400 resize-none"
-                placeholder="例如：要完成复习 CS421 midterm3 的复习，我需要复习 PPT，复习 WA，复习 MP，做 practice quiz"
+                placeholder="e.g., To complete CS421 midterm3 review, I need to review PPT, review WA, review MP, and do practice quiz"
               />
             </div>
 
             <div>
               <label htmlFor="importance" className="block text-sm font-semibold text-gray-700 mb-3">
-                任务重要性
+                Task Importance
               </label>
               <select
                 id="importance"
@@ -266,19 +266,19 @@ function InputPage() {
                 onChange={(e) => setImportance(e.target.value)}
                 className="w-full px-5 py-3 border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 text-gray-900 bg-white"
               >
-                <option value="low">低</option>
-                <option value="medium">中</option>
-                <option value="high">高</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
               </select>
             </div>
 
             <div className="flex items-center justify-between p-5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl border-2 border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
               <label htmlFor="isLongTerm" className="flex-1 cursor-pointer">
                 <span className="block text-sm font-bold text-gray-900 mb-1">
-                  长期任务
+                  Long-term Task
                 </span>
                 <span className="block text-xs text-gray-600">
-                  无截止日期，例如：每天做 LeetCode
+                  No deadline, e.g., daily LeetCode practice
                 </span>
               </label>
               <button
@@ -318,10 +318,10 @@ function InputPage() {
               />
             </div>
 
-            {/* 开始日期（可选，适用于所有任务） */}
+            {/* Start Date (Optional, applies to all tasks) */}
             <div>
               <label htmlFor="startDate" className="block text-sm font-semibold text-gray-700 mb-3">
-                开始日期（可选）
+                Start Date (Optional)
               </label>
               <input
                 type="date"
@@ -331,7 +331,7 @@ function InputPage() {
                 className="w-full px-5 py-3 border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 text-gray-900"
               />
               <p className="mt-2 text-xs text-gray-500">
-                如果不填写，将从今天开始。如果填写，计划将从指定日期开始。
+                If not filled, it will start from today. If filled, the plan will start from the specified date.
               </p>
             </div>
 
@@ -339,7 +339,7 @@ function InputPage() {
               <>
                 <div>
                   <label htmlFor="deadline" className="block text-sm font-semibold text-gray-700 mb-3">
-                    截止日期
+                    Deadline
                   </label>
                   <input
                     type="date"
@@ -354,7 +354,7 @@ function InputPage() {
                 
                 <div>
                   <label htmlFor="maxSubtasks" className="block text-sm font-semibold text-gray-700 mb-3">
-                    子任务数量上限（可选）
+                    Max Subtasks (Optional)
                   </label>
                   <input
                     type="number"
@@ -362,11 +362,11 @@ function InputPage() {
                     value={maxSubtasks}
                     onChange={(e) => setMaxSubtasks(e.target.value)}
                     min="1"
-                    placeholder="例如：1（只生成1个子任务）"
+                    placeholder="e.g., 1 (only generate 1 subtask)"
                     className="w-full px-5 py-3 border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 text-gray-900 placeholder-gray-400"
                   />
                   <p className="mt-2 text-xs text-gray-500">
-                    如果不填写，AI 将根据任务复杂度自动决定子任务数量。填写后，AI 最多只会生成指定数量的子任务。
+                    If not filled, AI will automatically decide the number of subtasks based on task complexity. If filled, AI will generate at most the specified number of subtasks.
                   </p>
                 </div>
               </>
@@ -377,7 +377,7 @@ function InputPage() {
               disabled={loading}
               className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 px-6 rounded-2xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
             >
-              {loading ? '创建中...' : '创建任务'}
+              {loading ? 'Creating...' : 'Create Task'}
             </button>
           </form>
 
@@ -391,36 +391,36 @@ function InputPage() {
             <div className="mt-8 space-y-4">
               <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl shadow-sm">
                 <p className="text-sm text-green-800 font-semibold">
-                  ✅ 任务创建成功！任务 ID: {task.id}
-                  {task.is_long_term ? '（长期任务，计划已自动生成）' : '（子任务已自动生成）'}
+                  ✅ Task created successfully! Task ID: {task.id}
+                  {task.is_long_term ? ' (Long-term task, plan automatically generated)' : ' (Subtasks automatically generated)'}
                 </p>
               </div>
 
               {task.is_long_term ? (
                 <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl shadow-sm">
                   <p className="text-sm text-blue-800 font-semibold">
-                    📅 长期任务的计划已自动生成！前往 <Link to="/" className="underline font-bold hover:text-blue-900">今日计划</Link> 或 <Link to="/calendar" className="underline font-bold hover:text-blue-900">日历视图</Link> 查看。
+                    📅 Plan for long-term task has been automatically generated! Go to <Link to="/" className="underline font-bold hover:text-blue-900">Today's Plan</Link> or <Link to="/calendar" className="underline font-bold hover:text-blue-900">Calendar View</Link> to view.
                   </p>
                 </div>
               ) : (
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-6">子任务列表</h3>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-6">Subtask List</h3>
                   {task.subtasks.length === 0 ? (
                     <div className="p-5 bg-yellow-50 border-2 border-yellow-200 rounded-2xl shadow-sm">
-                      <p className="text-sm text-yellow-800 font-semibold">正在生成子任务...</p>
+                      <p className="text-sm text-yellow-800 font-semibold">Generating subtasks...</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       <div className="space-y-3">
                         {task.subtasks.map((subtask) => {
-                          // 从 task.subtasks 中获取最新的值，而不是从 subtasks state
+                          // Get latest value from task.subtasks, not from subtasks state
                           const currentSubtask = task.subtasks.find(st => st.id === subtask.id) || subtask
                           return (
                             <div key={subtask.id} className="p-5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl border-2 border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
                               <div className="space-y-3">
-                                {/* 子任务名称 */}
+                                {/* Subtask Name */}
                                 <div>
-                                  <label className="block text-xs font-semibold text-gray-600 mb-1">子任务名称</label>
+                                  <label className="block text-xs font-semibold text-gray-600 mb-1">Subtask Name</label>
                                   <input
                                     type="text"
                                     value={currentSubtask.subtask_name || ''}
@@ -439,7 +439,7 @@ function InputPage() {
                                       if (newName && newName !== currentSubtask.subtask_name) {
                                         await handleUpdateSubtask(subtask.id, { subtask_name: newName })
                                       } else if (!newName) {
-                                        // 如果名称为空，恢复原值
+                                        // If name is empty, restore original value
                                         setTask({
                                           ...task,
                                           subtasks: task.subtasks.map(st => 
@@ -459,9 +459,9 @@ function InputPage() {
                                   />
                                 </div>
                                 
-                                {/* 子任务描述 */}
+                                {/* Subtask Description */}
                                 <div>
-                                  <label className="block text-xs font-semibold text-gray-600 mb-1">描述（可选）</label>
+                                  <label className="block text-xs font-semibold text-gray-600 mb-1">Description (Optional)</label>
                                   <textarea
                                     value={currentSubtask.description || ''}
                                     onChange={(e) => {
@@ -481,14 +481,14 @@ function InputPage() {
                                       }
                                     }}
                                     rows={2}
-                                    placeholder="添加子任务描述..."
+                                    placeholder="Add subtask description..."
                                     className="w-full px-3 py-2 border-2 border-gray-300 rounded-xl text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 resize-none"
                                   />
                                 </div>
                                 
-                                {/* 预计时间 */}
+                                {/* Estimated Time */}
                                 <div className="flex items-center justify-between">
-                                  <label className="text-sm font-semibold text-gray-700">预计时间（小时）</label>
+                                  <label className="text-sm font-semibold text-gray-700">Estimated Time (hours)</label>
                                   <input
                                     type="number"
                                     step="0.5"
@@ -563,11 +563,11 @@ function InputPage() {
                         disabled={generatingPlan}
                         className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 px-6 rounded-2xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
                       >
-                        {generatingPlan ? '生成计划中...' : '生成每日计划'}
+                        {generatingPlan ? 'Generating Plan...' : 'Generate Daily Plan'}
                       </button>
                       
                       <div className="text-sm text-gray-600 p-4 bg-blue-50 rounded-2xl border-2 border-blue-200">
-                        <p className="font-semibold">✅ 子任务已生成！可以修改时间，然后点击"生成每日计划"。前往 <Link to="/" className="text-indigo-600 hover:underline font-bold">今日计划</Link> 查看。</p>
+                        <p className="font-semibold">✅ Subtasks have been generated! You can modify the time, then click "Generate Daily Plan". Go to <Link to="/" className="text-indigo-600 hover:underline font-bold">Today's Plan</Link> to view.</p>
                       </div>
                     </div>
                   )}

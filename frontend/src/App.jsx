@@ -33,7 +33,7 @@ function Navigation() {
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
               >
-                今日计划
+                Today
               </Link>
               <Link
                 to="/create"
@@ -43,7 +43,7 @@ function Navigation() {
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
               >
-                创建任务
+                Create Task
               </Link>
               <Link
                 to="/calendar"
@@ -53,7 +53,7 @@ function Navigation() {
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
               >
-                日历视图
+                Calendar
               </Link>
             </div>
           </div>
@@ -68,7 +68,7 @@ function Navigation() {
                   onClick={logout}
                   className="text-sm px-4 py-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-300"
                 >
-                  切换用户
+                  Switch User
                 </button>
               </div>
             ) : (
@@ -76,7 +76,7 @@ function Navigation() {
                 to="/user"
                 className="text-sm px-5 py-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-all duration-300 shadow-sm hover:shadow-md"
               >
-                创建/选择用户
+                Create/Select User
               </Link>
             )}
           </div>
@@ -94,7 +94,7 @@ function AppContent() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mx-auto"></div>
-          <p className="mt-6 text-gray-600 text-lg">加载中...</p>
+          <p className="mt-6 text-gray-600 text-lg">Loading...</p>
         </div>
       </div>
     )

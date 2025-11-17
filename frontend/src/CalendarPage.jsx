@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { useUser } from './UserContext'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
-import zhCnLocale from '@fullcalendar/core/locales/zh-cn'
 import axios from 'axios'
 import { API_BASE_URL } from './config'
 
@@ -35,13 +34,13 @@ function CalendarPage() {
 
   const fetchCalendarData = async () => {
     if (!user) {
-      setError('请先创建或选择用户')
+      setError('Please create or select a user first')
       return
     }
 
     try {
       setLoading(true)
-      // 获取用户时区偏移（小时）
+      // Get user timezone offset (hours)
       const timezoneOffset = -new Date().getTimezoneOffset() / 60
       const response = await axios.get(
         `${API_BASE_URL}/calendar?user_id=${user.user_id}&timezone_offset=${timezoneOffset}`
@@ -49,9 +48,9 @@ function CalendarPage() {
       
       setItems(response.data)
       
-      // 将数据转换为 FullCalendar 事件格式
+      // Convert data to FullCalendar event format
       const calendarEvents = response.data.map(item => {
-        // 长期任务可能没有子任务（subtask_id === 0），只显示任务名称
+        // Long-term tasks may not have subtasks (subtask_id === 0), only show task name
         const displayName = item.subtask_id === 0 || !item.subtask_id
           ? `${item.task_name} (${item.allocated_hours}h)`
           : `${item.task_name}: ${item.subtask_name} (${item.allocated_hours}h)`
@@ -71,14 +70,14 @@ function CalendarPage() {
       setEvents(calendarEvents)
       setError('')
     } catch (err) {
-      setError('加载计划失败，请检查后端服务是否运行')
+      setError('Failed to load plans. Please check if the backend service is running')
       console.error('Error:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  // 根据重要性生成颜色
+  // Generate color based on importance
   const getColorForImportance = (importance) => {
     const colors = {
       'high': '#ef4444',    // red
@@ -92,7 +91,7 @@ function CalendarPage() {
     const item = clickInfo.event.extendedProps.item
     setSelectedItem(item)
     setEditHours(item.allocated_hours)
-    setDeleteFuture(false) // 重置复选框
+    setDeleteFuture(false) // Reset checkbox
     setShowEditModal(true)
   }
 
@@ -104,11 +103,11 @@ function CalendarPage() {
       await axios.delete(url)
       setShowEditModal(false)
       setSelectedItem(null)
-      setDeleteFuture(false) // 重置复选框
-      fetchCalendarData() // 刷新数据
-      setError('') // 清除错误信息
+      setDeleteFuture(false) // Reset checkbox
+      fetchCalendarData() // Refresh data
+      setError('') // Clear error message
     } catch (err) {
-      setError(err.response?.data?.detail || '删除任务失败')
+      setError(err.response?.data?.detail || 'Failed to delete task')
       console.error('Error:', err)
     }
   }
@@ -122,9 +121,9 @@ function CalendarPage() {
       })
       setShowEditModal(false)
       setSelectedItem(null)
-      fetchCalendarData() // 刷新数据
+      fetchCalendarData() // Refresh data
     } catch (err) {
-      setError(err.response?.data?.detail || '更新时间失败')
+      setError(err.response?.data?.detail || 'Failed to update time')
       console.error('Error:', err)
     }
   }
@@ -136,9 +135,9 @@ function CalendarPage() {
       await axios.delete(`${API_BASE_URL}/calendar/clear?user_id=${user.user_id}`)
       setShowClearConfirm(false)
       setError('')
-      fetchCalendarData() // 刷新数据
+      fetchCalendarData() // Refresh data
     } catch (err) {
-      setError(err.response?.data?.detail || '清空日历失败')
+      setError(err.response?.data?.detail || 'Failed to clear calendar')
       console.error('Error:', err)
     } finally {
       setClearing(false)
@@ -146,7 +145,7 @@ function CalendarPage() {
   }
 
   const handleDateClick = (arg) => {
-    // 点击日期时，打开创建任务项的模态框
+    // When clicking a date, open the modal to create a task item
     setSelectedDate(arg.dateStr)
     setNewTaskName('')
     setNewTaskDescription('')
@@ -157,23 +156,23 @@ function CalendarPage() {
 
   const handleCreateCustomTask = async () => {
     if (!user) {
-      setError('请先创建或选择用户')
+      setError('Please create or select a user first')
       return
     }
 
     if (!newTaskName.trim()) {
-      setError('请填写任务名称')
+      setError('Please enter task name')
       return
     }
 
     if (!selectedDate) {
-      setError('请选择日期')
+      setError('Please select a date')
       return
     }
 
     const hours = parseFloat(newTaskHours)
     if (isNaN(hours) || hours <= 0) {
-      setError('请填写有效的时间（大于0的数字）')
+      setError('Please enter a valid time (a number greater than 0)')
       return
     }
 
@@ -195,10 +194,10 @@ function CalendarPage() {
       setNewTaskDescription('')
       setSelectedDate('')
       setNewTaskHours(2)
-      fetchCalendarData() // 刷新数据
+      fetchCalendarData() // Refresh data
       setError('')
     } catch (err) {
-      setError(err.response?.data?.detail || '创建任务失败')
+      setError(err.response?.data?.detail || 'Failed to create task')
       console.error('Error:', err)
     } finally {
       setCreating(false)
@@ -211,7 +210,7 @@ function CalendarPage() {
         <div className="max-w-7xl mx-auto">
           <div className="bg-white shadow-2xl rounded-3xl p-12 text-center border border-gray-100">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 text-lg">加载中...</p>
+            <p className="text-gray-600 text-lg">Loading...</p>
           </div>
         </div>
       </div>
@@ -223,17 +222,17 @@ function CalendarPage() {
       <div className="max-w-7xl mx-auto">
         <div className="bg-white shadow-2xl rounded-3xl p-8 lg:p-10 border border-gray-100">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">日历视图</h2>
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Calendar View</h2>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={fetchCalendarData}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-2xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
               >
-                刷新
+                Refresh
               </button>
               <button
                 onClick={() => {
-                  // 设置日期为今天
+                  // Set date to today
                   const today = new Date().toISOString().split('T')[0]
                   setSelectedDate(today)
                   setNewTaskName('')
@@ -244,19 +243,19 @@ function CalendarPage() {
                 }}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-2xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
               >
-                创建任务
+                Create Task
               </button>
               <Link
                 to="/create"
                 className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-3 rounded-2xl hover:from-gray-700 hover:to-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
               >
-                AI 创建任务
+                AI Create Task
               </Link>
               <button
                 onClick={() => setShowClearConfirm(true)}
                 className="bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-2xl hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-4 focus:ring-red-300 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 font-semibold"
               >
-                清空日历
+                Clear Calendar
               </button>
             </div>
           </div>
@@ -264,15 +263,15 @@ function CalendarPage() {
           <div className="mb-6 flex flex-wrap items-center gap-4 text-sm">
             <div className="flex items-center bg-white px-4 py-2 rounded-full shadow-sm border-2 border-gray-200">
               <div className="w-4 h-4 bg-red-500 rounded-full mr-2 shadow-sm"></div>
-              <span className="font-semibold text-gray-700">高优先级</span>
+              <span className="font-semibold text-gray-700">High Priority</span>
             </div>
             <div className="flex items-center bg-white px-4 py-2 rounded-full shadow-sm border-2 border-gray-200">
               <div className="w-4 h-4 bg-amber-500 rounded-full mr-2 shadow-sm"></div>
-              <span className="font-semibold text-gray-700">中优先级</span>
+              <span className="font-semibold text-gray-700">Medium Priority</span>
             </div>
             <div className="flex items-center bg-white px-4 py-2 rounded-full shadow-sm border-2 border-gray-200">
               <div className="w-4 h-4 bg-green-500 rounded-full mr-2 shadow-sm"></div>
-              <span className="font-semibold text-gray-700">低优先级</span>
+              <span className="font-semibold text-gray-700">Low Priority</span>
             </div>
           </div>
 
@@ -285,12 +284,12 @@ function CalendarPage() {
           {events.length === 0 && !error && (
             <div className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-3xl shadow-sm">
               <p className="text-sm text-blue-800 font-semibold">
-                还没有计划。您可以：
+                No plans yet. You can:
               </p>
               <ul className="text-sm text-blue-700 mt-2 list-disc list-inside space-y-1">
-                <li>点击右上角的"创建任务"按钮快速创建自定义任务</li>
-                <li>点击日历上的日期直接创建该日期的任务</li>
-                <li>点击"AI 创建任务"使用 AI 生成任务计划</li>
+                <li>Click the "Create Task" button in the top right to quickly create a custom task</li>
+                <li>Click on a date in the calendar to directly create a task for that date</li>
+                <li>Click "AI Create Task" to use AI to generate a task plan</li>
               </ul>
             </div>
           )}
@@ -306,41 +305,41 @@ function CalendarPage() {
               center: 'title',
               right: 'dayGridMonth,dayGridWeek'
             }}
-            locales={[zhCnLocale]}
-            locale="zh-cn"
+            locales={[]}
+            locale="en"
             height="auto"
             eventDisplay="block"
             eventTextColor="#ffffff"
           />
 
-          {/* 编辑/删除模态框 */}
+          {/* Edit/Delete Modal */}
           {showEditModal && selectedItem && (
             <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full flex justify-center items-center z-50 p-4">
               <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full border border-gray-100 transform transition-all">
-                <h3 className="text-3xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">任务详情</h3>
+                <h3 className="text-3xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Task Details</h3>
                 
                 <div className="space-y-4 mb-6">
                   <div className="p-4 bg-gray-50 rounded-2xl">
-                    <p className="text-sm font-semibold text-gray-600 mb-1">任务</p>
+                    <p className="text-sm font-semibold text-gray-600 mb-1">Task</p>
                     <p className="text-base font-bold text-gray-900">{selectedItem.task_name}</p>
                   </div>
                   <div className="p-4 bg-gray-50 rounded-2xl">
-                    <p className="text-sm font-semibold text-gray-600 mb-1">子任务</p>
+                    <p className="text-sm font-semibold text-gray-600 mb-1">Subtask</p>
                     <p className="text-base font-bold text-gray-900">{selectedItem.subtask_name}</p>
                   </div>
                   <div className="p-4 bg-gray-50 rounded-2xl">
-                    <p className="text-sm font-semibold text-gray-600 mb-1">日期</p>
+                    <p className="text-sm font-semibold text-gray-600 mb-1">Date</p>
                     <p className="text-base font-bold text-gray-900">{selectedItem.date}</p>
                   </div>
                   <div className="p-4 bg-gray-50 rounded-2xl">
-                    <p className="text-sm font-semibold text-gray-600 mb-1">优先级</p>
-                    <p className="text-base font-bold text-gray-900 capitalize">{selectedItem.importance === 'high' ? '高' : selectedItem.importance === 'medium' ? '中' : '低'}</p>
+                    <p className="text-sm font-semibold text-gray-600 mb-1">Priority</p>
+                    <p className="text-base font-bold text-gray-900 capitalize">{selectedItem.importance === 'high' ? 'High' : selectedItem.importance === 'medium' ? 'Medium' : 'Low'}</p>
                   </div>
                 </div>
 
                 <div className="mb-6">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    分配时间（小时）
+                    Allocated Time (hours)
                   </label>
                   <input
                     type="number"
@@ -352,15 +351,15 @@ function CalendarPage() {
                   />
                 </div>
 
-                {/* 删除选项 */}
+                {/* Delete Option */}
                 <div className="mb-6 p-5 bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-2xl shadow-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <span className="block text-sm font-bold text-red-800 mb-1">
-                        删除所有未来的同名任务
+                        Delete All Future Tasks with Same Name
                       </span>
                       <p className="text-xs text-red-600">
-                        选中后将删除从当前日期开始的所有未来同名任务项
+                        When checked, will delete all future task items with the same name starting from the current date
                       </p>
                     </div>
                     <button

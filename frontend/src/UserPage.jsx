@@ -14,7 +14,7 @@ function UserPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!nickname.trim()) {
-      setError('请输入昵称')
+      setError('Please enter a nickname')
       return
     }
 
@@ -25,7 +25,7 @@ function UserPage() {
       await getUserByNickname(nickname.trim())
       navigate('/')
     } catch (err) {
-      setError(err.response?.data?.detail || '创建/获取用户失败')
+      setError(err.response?.data?.detail || 'Failed to create/get user')
       console.error('Error:', err)
     } finally {
       setLoading(false)
@@ -42,26 +42,26 @@ function UserPage() {
             </svg>
           </div>
           <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            创建/选择用户
+            Create/Select User
           </h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="nickname" className="block text-sm font-semibold text-gray-700 mb-3">
-              昵称
+              Nickname
             </label>
             <input
               type="text"
               id="nickname"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
-              placeholder="请输入您的昵称"
+              placeholder="Enter your nickname"
               className="w-full px-5 py-3 border-2 border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 text-gray-900 placeholder-gray-400"
               required
             />
             <p className="mt-3 text-sm text-gray-500 leading-relaxed">
-              如果昵称已存在，将自动使用现有用户；否则将创建新用户
+              If the nickname exists, the existing user will be used; otherwise, a new user will be created
             </p>
           </div>
 
@@ -76,7 +76,7 @@ function UserPage() {
             disabled={loading}
             className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 px-6 rounded-2xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
           >
-            {loading ? '处理中...' : '确定'}
+            {loading ? 'Processing...' : 'Submit'}
           </button>
         </form>
       </div>
